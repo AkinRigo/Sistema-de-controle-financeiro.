@@ -22,7 +22,7 @@ h1,h2,h3,p{margin:0}
 /* cabeçalho */
 .strip{background:var(--roxo);color:#fff;border-bottom:3px solid var(--preto);padding:10px max(4vw,16px);display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
 .strip .marca{display:flex;flex-direction:column;gap:2px}
-.strip .marca svg{display:block;width:clamp(190px,24vw,280px);height:auto}
+.strip .marca svg{display:block;width:clamp(220px,24vw,290px);height:auto}
 .strip .save{font-size:13px;color:#f3eefe}
 .nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .nav .mon{font:400 26px/1 var(--display);letter-spacing:.05em;min-width:190px;text-align:center;color:#fff}
