@@ -3,12 +3,13 @@ import os
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from painel.infra.db import normalizar_url
 from painel.infra.modelos import Base
 
 config = context.config
 url = os.environ.get("PAINEL_DATABASE_URL")
 if url:
-    config.set_main_option("sqlalchemy.url", url)
+    config.set_main_option("sqlalchemy.url", normalizar_url(url).replace("%", "%%"))
 
 target_metadata = Base.metadata
 

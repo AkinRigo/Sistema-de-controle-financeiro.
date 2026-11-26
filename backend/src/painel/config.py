@@ -1,9 +1,24 @@
 """Configuração da aplicação lida de variáveis de ambiente."""
 
+import hashlib
 import os
 import secrets
 import warnings
 from dataclasses import dataclass
+
+
+def _chave_de(segredo: str) -> bytes:
+    """64 caracteres hex viram a chave direto; qualquer outro segredo longo passa por SHA-256
+    (assim serve a chave gerada pelo Render, que vem em base64)."""
+    try:
+        chave = bytes.fromhex(segredo)
+        if len(chave) == 32:
+            return chave
+    except ValueError:
+        pass
+    if len(segredo) < 32:
+        raise ValueError("PAINEL_CHAVE_TOKEN muito curta: use pelo menos 32 caracteres.")
+    return hashlib.sha256(segredo.encode()).digest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,11 +35,9 @@ class Config:
 
     @classmethod
     def do_ambiente(cls) -> "Config":
-        chave_hex = os.environ.get("PAINEL_CHAVE_TOKEN", "")
-        if chave_hex:
-            chave = bytes.fromhex(chave_hex)
-            if len(chave) != 32:
-                raise ValueError("PAINEL_CHAVE_TOKEN deve ter 32 bytes em hexadecimal (64 chars).")
+        segredo = os.environ.get("PAINEL_CHAVE_TOKEN", "").strip()
+        if segredo:
+            chave = _chave_de(segredo)
         else:
             warnings.warn(
                 "PAINEL_CHAVE_TOKEN não definida: usando chave aleatória; "

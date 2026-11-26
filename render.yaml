@@ -1,0 +1,29 @@
+# Blueprint do Render: cria o backend a partir deste repositório.
+# Render → New → Blueprint → escolha este repositório. Os valores marcados com
+# "sync: false" são pedidos na tela (não ficam no Git, porque são segredos).
+services:
+  - type: web
+    name: controle-financeiro-api
+    runtime: python
+    plan: free
+    region: virginia
+    rootDir: backend
+    buildCommand: pip install .
+    startCommand: alembic upgrade head && uvicorn painel.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /saude
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: PAINEL_CHAVE_TOKEN
+        generateValue: true
+      - key: PAINEL_URL_FRONTEND
+        value: https://no-corre-das-notas.pages.dev
+      - key: PAINEL_CORS_ORIGENS
+        value: https://no-corre-das-notas.pages.dev
+      - key: PAINEL_DATABASE_URL
+        sync: false
+      - key: PAINEL_SMTP_USUARIO
+        sync: false
+      - key: PAINEL_SMTP_SENHA
+        sync: false
