@@ -88,8 +88,27 @@ class PagamentoModelo(Base):
     )
 
 
+class RendaFixaModelo(Base):
+    """Dinheiro que entra todo mês (salário, aluguel recebido...). Vira um ganho por mês."""
+
+    __tablename__ = "rendas_fixas"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    usuario_id: Mapped[str] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="CASCADE"), index=True
+    )
+    nome: Mapped[str] = mapped_column(String(120))
+    valor: Mapped[Decimal] = mapped_column(DINHEIRO)
+    dia: Mapped[int] = mapped_column(Integer)
+    mes_inicio: Mapped[str] = mapped_column(String(7))
+    banco_id: Mapped[str | None] = mapped_column(
+        ForeignKey("bancos.id", ondelete="SET NULL"), nullable=True
+    )
+
+
 class GanhoModelo(Base):
     __tablename__ = "ganhos"
+    __table_args__ = (UniqueConstraint("renda_id", "mes_renda", name="uq_ganho_renda_mes"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     usuario_id: Mapped[str] = mapped_column(
@@ -102,3 +121,10 @@ class GanhoModelo(Base):
     banco_id: Mapped[str | None] = mapped_column(
         ForeignKey("bancos.id", ondelete="SET NULL"), nullable=True
     )
+    # Preenchidos quando o ganho foi gerado por uma renda fixa (um por mês).
+    renda_id: Mapped[str | None] = mapped_column(
+        ForeignKey("rendas_fixas.id", ondelete="SET NULL", name="fk_ganho_renda"),
+        nullable=True,
+        index=True,
+    )
+    mes_renda: Mapped[str | None] = mapped_column(String(7), nullable=True)

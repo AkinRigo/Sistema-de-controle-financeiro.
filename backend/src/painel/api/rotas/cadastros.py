@@ -14,6 +14,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from painel.api.deps import HojeDep, SessaoDep, UsuarioDep, nao_encontrado
+from painel.api.rotas.rendas import garantir_rendas
 from painel.api.schemas import (
     BancoEntrada,
     BancoSaida,
@@ -342,6 +343,7 @@ def _ganho_saida(m: GanhoModelo) -> GanhoSaida:
         data=g.data,
         recebido=g.recebido,
         banco_id=g.banco_id,
+        renda_id=m.renda_id,
     )
 
 
@@ -350,7 +352,13 @@ def _efeito_ganho(m: GanhoModelo) -> Decimal:
 
 
 @router.get("/ganhos", response_model=list[GanhoSaida], tags=["ganhos"])
-def listar_ganhos(sessao: SessaoDep, usuario: UsuarioDep) -> list[GanhoSaida]:
+def listar_ganhos(
+    sessao: SessaoDep,
+    usuario: UsuarioDep,
+    ate: Annotated[MesTexto | None, Query(description="gera as rendas fixas até este mês")] = None,
+) -> list[GanhoSaida]:
+    if ate is not None:
+        garantir_rendas(sessao, usuario, Mes(ate))
     ganhos = sessao.scalars(
         select(GanhoModelo)
         .where(GanhoModelo.usuario_id == usuario.id)

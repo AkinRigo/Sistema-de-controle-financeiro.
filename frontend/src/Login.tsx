@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ErroApi, api, token, type Usuario } from "./api";
 import { LogoCompleto } from "./componentes/Logo";
+import { Rodape } from "./componentes/Rodape";
 
 type Modo = "entrar" | "cadastrar" | "esqueci" | "redefinir" | "aguardando" | "confirmando";
 
@@ -24,7 +25,7 @@ function Moldura({ children }: { children: React.ReactNode }) {
         <LogoCompleto />
         <p>Quanto tenho, quanto entra, quanto falta. O mês inteiro numa conta só.</p>
       </div>
-      <div className="form-lado">{children}</div>
+      <div className="form-lado">{children}<Rodape /></div>
     </main>
   );
 }

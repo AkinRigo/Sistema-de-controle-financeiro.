@@ -211,6 +211,27 @@ class GanhoSaida(BaseModel):
     data: date
     recebido: bool
     banco_id: str | None
+    renda_id: str | None = None
+
+
+# ---------- renda fixa ----------
+
+
+class RendaEntrada(_ComDinheiro):
+    nome: str = Field(min_length=1, max_length=120)
+    valor: DinheiroEntrada = Field(gt=0)
+    dia: int = Field(ge=1, le=31)
+    banco_id: str | None = None
+    mes_inicio: MesTexto | None = None
+
+
+class RendaSaida(BaseModel):
+    id: str
+    nome: str
+    valor: DinheiroSaida
+    dia: int
+    mes_inicio: str
+    banco_id: str | None
 
 
 # ---------- relatórios ----------

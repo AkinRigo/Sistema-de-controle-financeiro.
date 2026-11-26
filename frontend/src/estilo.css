@@ -145,7 +145,12 @@ details.add[open] summary{margin-bottom:14px;background:var(--panel)}
 .auth .lado{background:var(--roxo);border-right:3px solid var(--preto);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:48px 32px;color:#fff;text-align:center}
 .auth .lado svg{width:min(460px,90%);height:auto}
 .auth .lado p{font-size:20px;line-height:1.5;max-width:420px}
-.auth .form-lado{display:flex;align-items:center;justify-content:center;padding:48px 16px}
+.auth .form-lado{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:48px 16px}
+
+/* rodapé */
+.rodape{text-align:center;font-size:14px;color:var(--muted);padding:8px 16px 32px}
+.rodape b{color:var(--ink)}
+.auth .rodape{padding:0}
 .auth .card{width:100%;max-width:440px;display:grid;gap:16px;box-shadow:var(--sombra-g);margin:0}
 .auth .tabs{margin:0}
 .auth .tabs .tab{flex:1 1 0;border-radius:12px;font:400 22px/1 var(--display);letter-spacing:.06em}

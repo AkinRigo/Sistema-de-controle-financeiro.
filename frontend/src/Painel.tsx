@@ -8,6 +8,7 @@ import { Contas } from "./componentes/Contas";
 import { Corridas } from "./componentes/Corridas";
 import { Ganhos } from "./componentes/Ganhos";
 import { LogoLinha } from "./componentes/Logo";
+import { Rodape } from "./componentes/Rodape";
 import { HOJE, MES_ATUAL, dinheiro, maiuscula, mesCompleto, nomeMes, num, somarMes } from "./util";
 
 type Vista = "bills" | "incomes" | "accounts" | "debts" | "sim";
@@ -230,6 +231,7 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
         {vista === "debts" && <Categorias />}
         {vista === "sim" && <Corridas key={mes} />}
       </main>
+      <Rodape />
       <div className={`toast ${toastVisivel ? "show" : ""}`} role="status">{toastTexto}</div>
     </Contexto.Provider>
   );
