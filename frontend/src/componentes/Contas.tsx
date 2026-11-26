@@ -7,7 +7,7 @@ import {
 } from "../util";
 import { Cancelar, OpcoesBanco, OpcoesCategoria, marcado, valorDe } from "./comuns";
 
-interface Item {
+export interface Item {
   conta: Conta;
   mes: string; // mês da ocorrência
   n: number | null; // número da parcela
@@ -118,8 +118,6 @@ function LinhaConta({ x }: { x: Item }) {
       `${conta.nome} paga${nb ? `: ${dinheiro(valor)} saiu do ${nb}` : ""}.`);
   }
 
-  const podeParar = conta.tipo === "fixa" && c.mes > conta.mes_inicio;
-
   return (
     <div className={`row ${p ? "paid" : ""}`}>
       <button className={`check ${p ? "done" : ""}`} onClick={clicarCirculo}
@@ -153,24 +151,36 @@ function LinhaConta({ x }: { x: Item }) {
         </div>
       )}
 
-      {c.aberto === "excluir:" + chave && (
-        <div className="box">
-          <p>Excluir <b>{conta.nome}</b>?{podeParar ? " Ela é fixa: dá para parar de cobrar a partir deste mês e manter o histórico." : ""}</p>
-          {podeParar && (
-            <button className="btn pri" onClick={() => c.executar(
-              () => api.editarConta(conta.id, { ...entradaDe(conta), mes_fim: somarMes(c.mes, -1) }),
-              `${conta.nome} não aparece mais a partir de ${mesCompleto(c.mes)}.`)}>
-              Parar a partir de {nomeMes(c.mes)}
-            </button>
-          )}
-          <button className="btn danger" onClick={() => c.executar(() => api.excluirConta(conta.id), `${conta.nome} apagada.`)}>Apagar de vez</button>
-          <Cancelar />
-        </div>
-      )}
-
+      {c.aberto === "excluir:" + chave && <ExcluirConta conta={conta} />}
       {c.aberto === "editar:" + chave && <EditarConta x={x} />}
     </div>
   );
+}
+
+/** Caixa de confirmação para excluir (ou, se fixa, parar de cobrar) uma conta. */
+export function ExcluirConta({ conta }: { conta: Conta }) {
+  const c = useCtx();
+  const podeParar = conta.tipo === "fixa" && c.mes > conta.mes_inicio;
+  return (
+    <div className="box">
+      <p>Excluir <b>{conta.nome}</b>?{podeParar ? " Ela é fixa: dá para parar de cobrar a partir deste mês e manter o histórico." : ""}</p>
+      {podeParar && (
+        <button className="btn pri" onClick={() => c.executar(
+          () => api.editarConta(conta.id, { ...entradaDe(conta), mes_fim: somarMes(c.mes, -1) }),
+          `${conta.nome} não aparece mais a partir de ${mesCompleto(c.mes)}.`)}>
+          Parar a partir de {nomeMes(c.mes)}
+        </button>
+      )}
+      <button className="btn danger" onClick={() => c.executar(() => api.excluirConta(conta.id), `${conta.nome} apagada.`)}>Apagar de vez</button>
+      <Cancelar />
+    </div>
+  );
+}
+
+/** Item de referência para editar uma conta fora da lista do mês (ex.: aba Por categoria). */
+export function itemParaEditar(conta: Conta, mes: string): Item {
+  const m = conta.tipo === "unica" || mes < conta.mes_inicio ? conta.mes_inicio : mes;
+  return { conta, mes: m, n: numeroParcela(conta, m), atrasada: false };
 }
 
 export function entradaDe(c: Conta): ContaEntrada {
@@ -184,7 +194,7 @@ export function entradaDe(c: Conta): ContaEntrada {
 
 const diaValido = (v: string) => Math.min(31, Math.max(0, parseInt(v, 10) || 0));
 
-function EditarConta({ x }: { x: Item }) {
+export function EditarConta({ x }: { x: Item }) {
   const c = useCtx();
   const b = x.conta;
   const [tipo, setTipo] = useState<Tipo>(b.tipo);
@@ -244,7 +254,7 @@ function EditarConta({ x }: { x: Item }) {
   );
 }
 
-function NovaConta({ aoAdicionar }: { aoAdicionar: () => void }) {
+export function NovaConta({ aoAdicionar }: { aoAdicionar?: () => void }) {
   const c = useCtx();
   const vazio = { nome: "", cred: "", valor: "", dia: "", n: "1", total: "2" };
   const [f, setF] = useState(vazio);
@@ -272,7 +282,7 @@ function NovaConta({ aoAdicionar }: { aoAdicionar: () => void }) {
       nome, valor, tipo, mes_inicio: c.mes, mes_fim: null, categoria, credor: f.cred.trim() || null,
       dia_vencimento: diaValido(f.dia), parcela_inicial: parcela, total_parcelas: total, juros_altos: juros, incerto,
     }), `${nome} adicionada em ${mesCompleto(c.mes)}.`);
-    if (ok) { setF(vazio); setCategoria("outros"); setMexeuCategoria(false); setJuros(false); setIncerto(false); aoAdicionar(); }
+    if (ok) { setF(vazio); setCategoria("outros"); setMexeuCategoria(false); setJuros(false); setIncerto(false); aoAdicionar?.(); }
   }
 
   return (

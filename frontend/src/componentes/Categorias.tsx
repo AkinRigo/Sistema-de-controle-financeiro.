@@ -1,10 +1,13 @@
+import { Fragment } from "react";
 import { useCtx } from "../contexto";
+import { EditarConta, ExcluirConta, NovaConta, itemParaEditar } from "./Contas";
 import { NOME_CATEGORIA, dinheiro, nomeMes, num } from "../util";
 
 export const dividaTotal = (cats: { ainda_devo: string }[]) => cats.reduce((s, c) => s + num(c.ainda_devo), 0);
 
 export function Categorias() {
-  const { dados, mes } = useCtx();
+  const c = useCtx();
+  const { dados, mes } = c;
   const usadas = dados.categorias.filter(
     (r) => num(r.falta_pagar) || num(r.ja_pago) || num(r.ainda_devo) || num(r.fixas_por_mes),
   );
@@ -15,12 +18,12 @@ export function Categorias() {
       const credor = c.credor && c.credor !== NOME_CATEGORIA[c.categoria_efetiva] ? " · " + c.credor : "";
       if (c.tipo === "fixa") {
         const ativa = c.mes_inicio <= mes && (!c.mes_fim || mes <= c.mes_fim);
-        return ativa ? [{ id: c.id, rotulo: `${c.nome} · todo mês`, valor: c.valor }] : [];
+        return ativa ? [{ id: c.id, conta: c, rotulo: `${c.nome} · todo mês`, valor: c.valor }] : [];
       }
       if (!num(c.ainda_devo)) return [];
       const restam = num(c.valor) ? Math.round(num(c.ainda_devo) / num(c.valor)) : 0;
       const parcelas = c.tipo === "parcelada" ? ` · faltam ${restam} de ${c.total_parcelas} parcelas de ${dinheiro(c.valor)}` : "";
-      return [{ id: c.id, rotulo: c.nome + credor + parcelas, valor: c.ainda_devo }];
+      return [{ id: c.id, conta: c, rotulo: c.nome + credor + parcelas, valor: c.ainda_devo }];
     });
 
   return (
@@ -57,7 +60,20 @@ export function Categorias() {
                 </summary>
                 <ul>
                   {lista.length
-                    ? lista.map((i) => <li key={i.id}><span>{i.rotulo}</span><b>{dinheiro(i.valor)}</b></li>)
+                    ? lista.map((i) => (
+                        <Fragment key={i.id}>
+                          <li>
+                            <span>{i.rotulo}</span>
+                            <span className="acoes">
+                              <b>{dinheiro(i.valor)}</b>
+                              <button className="lnk" onClick={() => c.abrir("editarCat:" + i.id)}>Editar</button>
+                              <button className="lnk red" onClick={() => c.abrir("excluirCat:" + i.id)}>Excluir</button>
+                            </span>
+                          </li>
+                          {c.aberto === "editarCat:" + i.id && <li className="caixa"><EditarConta x={itemParaEditar(i.conta, mes)} /></li>}
+                          {c.aberto === "excluirCat:" + i.id && <li className="caixa"><ExcluirConta conta={i.conta} /></li>}
+                        </Fragment>
+                      ))
                     : <li><span>Nada em aberto.</span></li>}
                 </ul>
               </details>
@@ -66,6 +82,7 @@ export function Categorias() {
         </>) : <div className="empty">Nenhuma conta cadastrada.</div>}
       </div>
       <div className="total"><span>Dívida total (todas as categorias)</span><b>{dinheiro(dividaTotal(dados.categorias))}</b></div>
+      <NovaConta />
     </section>
   );
 }

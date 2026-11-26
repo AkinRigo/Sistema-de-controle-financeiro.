@@ -117,3 +117,9 @@ details.add[open] summary{margin-bottom:10px}
 .auth .erro{color:var(--red);font-size:14px}
 .auth .troca{font-size:14px;color:var(--muted)}
 .loading{padding:40px;text-align:center;color:var(--muted)}
+/* ações nos itens da aba Por categoria */
+.cat-d li{flex-wrap:wrap;align-items:center}
+.cat-d li .acoes{display:flex;align-items:center;gap:4px 14px;margin-left:auto}
+.cat-d li .acoes .lnk{min-height:28px;padding:0}
+.cat-d li.caixa{display:block;padding:0}
+.cat-d li.caixa .box{background:var(--bg);margin:4px 0 8px}
