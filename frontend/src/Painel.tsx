@@ -7,6 +7,7 @@ import { Categorias, dividaTotal } from "./componentes/Categorias";
 import { Contas } from "./componentes/Contas";
 import { Corridas } from "./componentes/Corridas";
 import { Ganhos } from "./componentes/Ganhos";
+import { LogoLinha } from "./componentes/Logo";
 import { HOJE, MES_ATUAL, dinheiro, maiuscula, mesCompleto, nomeMes, num, somarMes } from "./util";
 
 type Vista = "bills" | "incomes" | "accounts" | "debts" | "sim";
@@ -138,7 +139,7 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
   return (
     <Contexto.Provider value={ctx}>
       <header className="strip">
-        <div><h1>Painel Financeiro</h1><div className="save">Conectado como {dados.usuario.nome || usuario.nome}</div></div>
+        <div className="marca"><h1 style={{ margin: 0, lineHeight: 0 }}><LogoLinha /></h1><div className="save">Conectado como {dados.usuario.nome || usuario.nome}</div></div>
         <div className="nav">
           <button className="sbtn" onClick={() => setMes(somarMes(mes, -1))} aria-label="Mês anterior">‹</button>
           <div className="mon">{maiuscula(mesCompleto(mes))}</div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ErroApi, api, token, type Usuario } from "./api";
+import { LogoCompleto } from "./componentes/Logo";
 
 type Modo = "entrar" | "cadastrar" | "esqueci" | "redefinir" | "aguardando" | "confirmando";
 
@@ -15,6 +16,20 @@ const TITULOS: Record<Modo, string> = {
   aguardando: "Falta só ativar sua conta.",
   confirmando: "Ativando sua conta…",
 };
+
+function Moldura({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="auth">
+      <div className="lado">
+        <LogoCompleto />
+        <p>Quanto tenho, quanto entra, quanto falta. O mês inteiro numa conta só.</p>
+      </div>
+      <div className="form-lado">{children}</div>
+    </main>
+  );
+}
+
+const MarcaMini = () => <LogoCompleto className="marca-mini" />;
 
 export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
   const [linkRedefinir] = useState(() => parametro("redefinir"));
@@ -84,13 +99,13 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
     }
   }
 
-  if (modo === "confirmando") return <main className="auth"><div className="card"><h1>Painel Financeiro</h1><p className="hint">{TITULOS.confirmando}</p></div></main>;
+  if (modo === "confirmando") return <Moldura><div className="card"><MarcaMini /><p className="hint">{TITULOS.confirmando}</p></div></Moldura>;
 
   if (modo === "aguardando") {
     return (
-      <main className="auth">
+      <Moldura>
         <div className="card">
-          <h1>Painel Financeiro</h1>
+          <MarcaMini />
           <p className="hint">{TITULOS.aguardando}</p>
           <p>Enviamos um link para <b>{email}</b>. Abra o e-mail e clique em <b>Ativar minha conta</b>. Se não achar, veja a caixa de spam.</p>
           {erro && <p className="erro" role="alert">{erro}</p>}
@@ -98,16 +113,16 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
           <button className="btn" onClick={reenviar}>Reenviar e-mail</button>
           <button type="button" className="lnk" style={{ justifySelf: "start" }} onClick={() => trocar("entrar")}>Já ativei, quero entrar</button>
         </div>
-      </main>
+      </Moldura>
     );
   }
 
   const senhaNova = modo === "cadastrar" || modo === "redefinir";
 
   return (
-    <main className="auth">
+    <Moldura>
       <form className="card" onSubmit={enviar}>
-        <h1>Painel Financeiro</h1>
+        <MarcaMini />
         {(modo === "entrar" || modo === "cadastrar") && (
           <div className="tabs" role="tablist" style={{ margin: 0 }}>
             <button type="button" role="tab" aria-selected={modo === "entrar"} className={`tab ${modo === "entrar" ? "on" : ""}`} onClick={() => trocar("entrar")}>Entrar</button>
@@ -141,6 +156,6 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
           <p className="troca">Lembrou a senha? <button type="button" className="lnk" onClick={() => trocar("entrar")}>Entrar</button></p>
         )}
       </form>
-    </main>
+    </Moldura>
   );
 }
