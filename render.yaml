@@ -21,7 +21,8 @@ services:
       - key: PAINEL_URL_FRONTEND
         value: https://no-corre-das-notas.pages.dev
       - key: PAINEL_CORS_ORIGENS
-        value: https://no-corre-das-notas.pages.dev
+        # o curinga libera as prévias do Cloudflare Pages (xxxx.no-corre-das-notas.pages.dev)
+        value: https://no-corre-das-notas.pages.dev,https://*.no-corre-das-notas.pages.dev
       - key: PAINEL_DATABASE_URL
         sync: false
       - key: PAINEL_SMTP_USUARIO

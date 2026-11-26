@@ -1,5 +1,6 @@
 """Fábrica da aplicação FastAPI."""
 
+import re
 from collections.abc import Callable
 from datetime import date
 
@@ -14,6 +15,14 @@ from painel.domain.erros import ErroDeValidacao
 from painel.infra.db import criar_engine, criar_fabrica_sessoes
 from painel.infra.email import EnviadorDeEmail, EnviadorSmtp, EnviadorTerminal
 from painel.infra.seguranca import EmissorDeTokens
+
+
+def _origens(origens: tuple[str, ...]) -> tuple[list[str], str | None]:
+    """Separa origens exatas de curingas como "https://*.meusite.pages.dev" (prévias do
+    Cloudflare Pages). O curinga vale para um único nível de subdomínio."""
+    exatas = [o for o in origens if "*" not in o]
+    curingas = [re.escape(o).replace(r"\*", r"[a-z0-9-]+") for o in origens if "*" in o]
+    return exatas, ("^(" + "|".join(curingas) + ")$") if curingas else None
 
 
 def criar_app(
@@ -45,9 +54,11 @@ def criar_app(
     app.state.enviador = enviador
 
     if config.origens_cors:
+        exatas, padrao = _origens(config.origens_cors)
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=list(config.origens_cors),
+            allow_origins=exatas,
+            allow_origin_regex=padrao,
             allow_methods=["*"],
             allow_headers=["*"],
         )

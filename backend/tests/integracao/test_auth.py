@@ -82,3 +82,29 @@ def test_rotas_protegidas_exigem_token_valido(cliente, app):
 
 def test_saude(cliente):
     assert cliente.get("/saude").json() == {"status": "ok"}
+
+
+def test_cors_aceita_previas_do_cloudflare(caixa):
+    from fastapi.testclient import TestClient
+
+    from integracao.conftest import criar_app_teste
+
+    c = TestClient(
+        criar_app_teste(
+            caixa,
+            origens_cors=("https://painel.pages.dev", "https://*.painel.pages.dev"),
+        )
+    )
+
+    def permitido(origem: str) -> str | None:
+        r = c.options(
+            "/auth/login",
+            headers={"Origin": origem, "Access-Control-Request-Method": "POST"},
+        )
+        return r.headers.get("access-control-allow-origin")
+
+    assert permitido("https://painel.pages.dev") == "https://painel.pages.dev"
+    assert permitido("https://ed6f3a.painel.pages.dev") == "https://ed6f3a.painel.pages.dev"
+    assert permitido("https://evil.com") is None
+    assert permitido("https://a.b.painel.pages.dev") is None
+    assert permitido("https://painel.pages.dev.evil.com") is None
