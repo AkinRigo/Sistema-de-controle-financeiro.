@@ -70,3 +70,19 @@ def test_usuario_admin_usa_o_proprio_login(caixa):
     assert c.get("/auth/eu", headers=auth).json()["admin"] is True
     r = c.post("/admin/users", json=NOVO, headers=auth)
     assert r.status_code == 201  # sem ADMIN_API_KEY, só com o login de admin
+
+
+def test_backend_entrega_o_site_quando_configurado(caixa, tmp_path):
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "index.html").write_text("<!doctype html><title>No Corre</title>", encoding="utf-8")
+    (tmp_path / "assets" / "app-123.js").write_text("console.log(1)", encoding="utf-8")
+    c = TestClient(criar_app_teste(caixa, frontend_dist=str(tmp_path)))
+    r = c.get("/")
+    assert r.status_code == 200 and "<title>No Corre</title>" in r.text
+    assert r.headers["cache-control"] == "no-cache"
+    assert c.get("/assets/app-123.js").text == "console.log(1)"
+    assert c.get("/saude").json() == {"status": "ok"}  # a API continua
+
+
+def test_sem_site_a_raiz_responde_json(cliente):
+    assert cliente.get("/").json()["app"] == "No Corre das Notas"

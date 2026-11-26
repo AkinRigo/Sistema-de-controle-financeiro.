@@ -48,6 +48,8 @@ class Config:
     smtp_porta: int = 465
     # Chave do POST /admin/users (header X-Admin-Key). Vazia = rota de admin desligada.
     admin_api_key: str = ""
+    # Pasta do site montado (frontend/dist) para o backend entregar em "/". Vazia = só API.
+    frontend_dist: str = ""
 
     @classmethod
     def do_ambiente(cls) -> "Config":
@@ -76,4 +78,5 @@ class Config:
             smtp_servidor=os.environ.get("PAINEL_SMTP_SERVIDOR", "smtp.gmail.com"),
             smtp_porta=int(os.environ.get("PAINEL_SMTP_PORTA", "465")),
             admin_api_key=os.environ.get("ADMIN_API_KEY", "").strip(),
+            frontend_dist=os.environ.get("PAINEL_FRONTEND_DIST", "").strip(),
         )

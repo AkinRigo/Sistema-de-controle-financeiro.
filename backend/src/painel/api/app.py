@@ -4,12 +4,14 @@ import re
 import uuid
 from collections.abc import Callable
 from datetime import date
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 
 from painel.api.erros import mensagens
@@ -119,8 +121,17 @@ def criar_app(
             content={"detail": "Conflito com dados existentes."},
         )
 
-    @app.get("/", tags=["infra"])
-    def inicio() -> dict[str, str]:
+    # Na hospedagem de um app só (Vertra), o backend também entrega o site já montado.
+    site = Path(config.frontend_dist) if config.frontend_dist else None
+    tem_site = site is not None and (site / "index.html").is_file()
+    if tem_site:
+        app.mount("/assets", StaticFiles(directory=site / "assets"), name="assets")
+
+    @app.get("/", tags=["infra"], response_model=None)
+    def inicio() -> dict[str, str] | FileResponse:
+        if tem_site:
+            # sempre a versão nova da página; os arquivos de /assets têm hash no nome
+            return FileResponse(site / "index.html", headers={"Cache-Control": "no-cache"})
         return {"app": "No Corre das Notas", "status": "ok", "docs": "/docs"}
 
     @app.get("/saude", tags=["infra"])
