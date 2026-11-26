@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, homologacao]
   pull_request:
 
 concurrency:
@@ -57,9 +57,11 @@ jobs:
         run: npm run build
 
   publicar-vertra:
-    name: Atualizar branch deploy (Vertra Cloud)
-    # Só na main e só se backend e frontend passaram. A Vertra publica a branch "deploy".
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Atualizar branch de publicação (Vertra Cloud)
+    # Só se backend e frontend passaram. A Vertra publica:
+    #   main        -> branch "deploy"              (produção)
+    #   homologacao -> branch "deploy-homologacao"  (homologação)
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/homologacao')
     needs: [backend, frontend]
     runs-on: ubuntu-latest
     permissions:
@@ -76,11 +78,12 @@ jobs:
         run: |
           npm ci
           npm run build
-      - name: Publicar na branch deploy
+      - name: Publicar na branch de publicação
         run: |
+          if [ "$GITHUB_REF_NAME" = "main" ]; then ALVO=deploy; else ALVO=deploy-homologacao; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git checkout -B deploy
+          git checkout -B "$ALVO"
           git add -f frontend/dist
-          git commit -m "deploy: ${GITHUB_SHA::7} (site montado)"
-          git push -f origin deploy
+          git commit -m "$ALVO: ${GITHUB_SHA::7} de $GITHUB_REF_NAME (site montado)"
+          git push -f origin "$ALVO"
