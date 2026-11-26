@@ -22,17 +22,27 @@ from painel.api.schemas import (
     ContaSaida,
     CorridasEntrada,
     CorridasSaida,
+    GanhoDoMesSaida,
     GanhoEntrada,
     GanhoSaida,
     MesTexto,
     PagamentoEntrada,
     PagamentoSaida,
+    PararContaEntrada,
+    ReceberEntrada,
 )
-from painel.domain.entidades import Conta
+from painel.domain.entidades import Conta, Corridas, TipoConta
 from painel.domain.erros import ErroDeValidacao
 from painel.domain.regras.categorias import categoria_da_conta
+from painel.domain.regras.corridas import estimar_corridas
 from painel.domain.regras.divida import calcular_divida_conta
 from painel.domain.regras.ocorrencias import aparece_em
+from painel.domain.regras.painel import (
+    data_do_recebimento,
+    ganhos_do_mes,
+    inicio_pela_parcela,
+    mes_fim_ao_parar,
+)
 from painel.domain.valores import Dinheiro, Mes
 from painel.infra import mapeamento
 from painel.infra.modelos import (
@@ -81,20 +91,36 @@ def _sem_conteudo() -> Response:
 
 
 @router.get("/configuracoes/corridas", response_model=CorridasSaida, tags=["configurações"])
-def obter_corridas(usuario: UsuarioDep) -> CorridasSaida:
+def obter_corridas(
+    usuario: UsuarioDep,
+    hoje: HojeDep,
+    mes: Annotated[MesTexto | None, Query(description="calcula a estimativa deste mês")] = None,
+) -> CorridasSaida:
+    estimativa = None
+    if mes is not None:
+        estimativa = estimar_corridas(
+            Corridas(
+                Dinheiro.de(usuario.corridas_por_semana),
+                Dinheiro.de(usuario.corridas_por_fim_de_semana),
+                contar_na_previsao=True,
+            ),
+            Mes(mes),
+            hoje,
+        ).valor
     return CorridasSaida(
         por_semana=usuario.corridas_por_semana,
         por_fim_de_semana=usuario.corridas_por_fim_de_semana,
         contar_na_previsao=usuario.contar_corridas,
+        estimativa_mes=estimativa,
     )
 
 
 @router.put("/configuracoes/corridas", response_model=CorridasSaida, tags=["configurações"])
-def salvar_corridas(dados: CorridasEntrada, usuario: UsuarioDep) -> CorridasSaida:
+def salvar_corridas(dados: CorridasEntrada, usuario: UsuarioDep, hoje: HojeDep) -> CorridasSaida:
     usuario.corridas_por_semana = Dinheiro.de(dados.por_semana).valor
     usuario.corridas_por_fim_de_semana = Dinheiro.de(dados.por_fim_de_semana).valor
     usuario.contar_corridas = dados.contar_na_previsao
-    return obter_corridas(usuario)
+    return obter_corridas(usuario, hoje)
 
 
 # ---------------- bancos ----------------
@@ -224,12 +250,29 @@ def listar_contas(sessao: SessaoDep, usuario: UsuarioDep) -> list[ContaSaida]:
     return [_conta_saida(mapeamento.conta(c), c.incerto, desde, pagamentos) for c in contas]
 
 
+def _pelo_mes_aberto(dados: ContaEntrada, atual: Conta | None) -> ContaEntrada:
+    """Traduz o que a tela manda pelo mês aberto (parcela no mês, virar fixa) em início/fim."""
+    if not dados.mes_referencia:
+        return dados
+    ref = Mes(dados.mes_referencia)
+    if dados.tipo is TipoConta.PARCELADA and dados.parcela_no_mes is not None:
+        inicio, inicial = inicio_pela_parcela(
+            atual, ref, dados.parcela_no_mes, dados.total_parcelas or 0
+        )
+        return dados.model_copy(
+            update={"mes_inicio": inicio.valor, "parcela_inicial": inicial, "mes_fim": None}
+        )
+    if dados.tipo is TipoConta.FIXA and (atual is None or atual.tipo is not TipoConta.FIXA):
+        return dados.model_copy(update={"mes_inicio": ref.valor, "mes_fim": None})
+    return dados
+
+
 @router.post(
     "/contas", response_model=ContaSaida, status_code=status.HTTP_201_CREATED, tags=["contas"]
 )
 def criar_conta(dados: ContaEntrada, sessao: SessaoDep, usuario: UsuarioDep) -> ContaSaida:
     modelo = ContaModelo(id=_novo_id())
-    conta = _aplicar_conta(modelo, dados, usuario.id)
+    conta = _aplicar_conta(modelo, _pelo_mes_aberto(dados, None), usuario.id)
     _recuar_desde(usuario, conta)
     sessao.add(modelo)
     return _conta_saida(conta, modelo.incerto, Mes(usuario.desde), [])
@@ -240,10 +283,27 @@ def editar_conta(
     conta_id: str, dados: ContaEntrada, sessao: SessaoDep, usuario: UsuarioDep
 ) -> ContaSaida:
     modelo = _do_usuario(sessao, ContaModelo, conta_id, usuario, "Conta")
+    dados = _pelo_mes_aberto(dados, mapeamento.conta(modelo))
     conta = _aplicar_conta(modelo, dados, usuario.id)
     _recuar_desde(usuario, conta)
     return _conta_saida(
         conta, modelo.incerto, Mes(usuario.desde), _pagamentos_do_usuario(sessao, usuario)
+    )
+
+
+@router.post("/contas/{conta_id}/parar", response_model=ContaSaida, tags=["contas"])
+def parar_conta(
+    conta_id: str, dados: PararContaEntrada, sessao: SessaoDep, usuario: UsuarioDep
+) -> ContaSaida:
+    """Conta fixa deixa de aparecer a partir do mês informado; o histórico fica."""
+    modelo = _do_usuario(sessao, ContaModelo, conta_id, usuario, "Conta")
+    conta = mapeamento.conta(modelo)
+    modelo.mes_fim = mes_fim_ao_parar(conta, Mes(dados.a_partir_de)).valor
+    return _conta_saida(
+        mapeamento.conta(modelo),
+        modelo.incerto,
+        Mes(usuario.desde),
+        _pagamentos_do_usuario(sessao, usuario),
     )
 
 
@@ -365,6 +425,49 @@ def listar_ganhos(
         .order_by(GanhoModelo.data, GanhoModelo.id)
     )
     return [_ganho_saida(g) for g in ganhos]
+
+
+@router.get("/ganhos/mes/{mes}", response_model=list[GanhoDoMesSaida], tags=["ganhos"])
+def ganhos_do_mes_rota(
+    mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep
+) -> list[GanhoDoMesSaida]:
+    """Ganhos que a tela do mês mostra: os do mês e os atrasados (não recebidos antes)."""
+    garantir_rendas(sessao, usuario, Mes(mes))
+    modelos = {
+        g.id: g
+        for g in sessao.scalars(select(GanhoModelo).where(GanhoModelo.usuario_id == usuario.id))
+    }
+    lista = ganhos_do_mes((mapeamento.ganho(m) for m in modelos.values()), Mes(mes))
+    return [
+        GanhoDoMesSaida(**_ganho_saida(modelos[x.ganho.id]).model_dump(), atrasado=x.atrasado)
+        for x in lista
+    ]
+
+
+@router.post("/ganhos/{ganho_id}/receber", response_model=GanhoSaida, tags=["ganhos"])
+def receber_ganho(
+    ganho_id: str, dados: ReceberEntrada, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep
+) -> GanhoSaida:
+    """Marca como recebido: credita o banco e acerta a data (futura/atrasada vira hoje)."""
+    modelo = _do_usuario(sessao, GanhoModelo, ganho_id, usuario, "Ganho")
+    banco = _banco_opcional(sessao, dados.banco_id, usuario)
+    _ajustar_saldo(sessao, modelo.banco_id, -_efeito_ganho(modelo))
+    modelo.valor = Dinheiro.de(dados.valor).valor
+    modelo.data = data_do_recebimento(modelo.data, Mes(dados.mes_aberto), hoje)
+    modelo.recebido = True
+    modelo.banco_id = banco.id if banco else None
+    _ajustar_saldo(sessao, modelo.banco_id, _efeito_ganho(modelo))
+    return _ganho_saida(modelo)
+
+
+@router.post("/ganhos/{ganho_id}/desfazer", response_model=GanhoSaida, tags=["ganhos"])
+def desfazer_recebimento(ganho_id: str, sessao: SessaoDep, usuario: UsuarioDep) -> GanhoSaida:
+    """Volta para "vai entrar" e tira o valor do banco onde tinha caído."""
+    modelo = _do_usuario(sessao, GanhoModelo, ganho_id, usuario, "Ganho")
+    _ajustar_saldo(sessao, modelo.banco_id, -_efeito_ganho(modelo))
+    modelo.recebido = False
+    modelo.banco_id = None
+    return _ganho_saida(modelo)
 
 
 @router.post(

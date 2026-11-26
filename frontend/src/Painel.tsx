@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Usuario } from "./api";
 import { Contexto, type Ctx, type Dados } from "./contexto";
-import { converterBackup } from "./importar";
 import { Bancos } from "./componentes/Bancos";
-import { Categorias, dividaTotal } from "./componentes/Categorias";
+import { Categorias } from "./componentes/Categorias";
 import { Contas } from "./componentes/Contas";
 import { Corridas } from "./componentes/Corridas";
 import { Ganhos } from "./componentes/Ganhos";
@@ -29,7 +28,7 @@ async function carregar(mes: string): Promise<Dados> {
   // e a lista de ganhos (pedida depois) já chega com eles.
   const resumo = await api.resumo(mes);
   const [usuario, contas, bancos, ganhos, rendas, corridas, categorias] = await Promise.all([
-    api.eu(), api.contas(), api.bancos(), api.ganhos(), api.rendas(), api.corridas(), api.categorias(mes),
+    api.eu(), api.contas(), api.bancos(), api.ganhosDoMes(mes), api.rendas(), api.corridas(mes), api.categorias(mes),
   ]);
   return { usuario, contas, bancos, ganhos, rendas, corridas, resumo, categorias };
 }
@@ -99,11 +98,12 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
   function escolherArquivo() { fecharMenu(); arquivoRef.current?.click(); }
 
   async function importarArquivo(arquivo: File) {
-    let convertido: unknown;
-    try { convertido = converterBackup(JSON.parse(await arquivo.text())); }
+    // O backend reconhece o formato (este painel ou o antigo) e faz a conversão.
+    let conteudo: unknown;
+    try { conteudo = JSON.parse(await arquivo.text()); }
     catch { toast("Esse arquivo não parece um backup do painel."); return; }
     try {
-      const r = await api.importar(convertido);
+      const r = await api.importar(conteudo);
       setMesBruto(MES_ATUAL); setAberto(null);
       await recarregar();
       toast(`Importado: ${r.contas} contas, ${r.ganhos} ganhos, ${r.bancos} bancos.`);
@@ -121,10 +121,9 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
 
   const r = dados.resumo;
   const nm = nomeMes(mes);
-  const vazio = !dados.contas.length && !dados.bancos.length && !dados.ganhos.length;
+  const vazio = !dados.contas.length && !dados.bancos.length && !dados.ganhos.length && !dados.rendas.length;
   const sobra = num(r.sobra), falta = num(r.falta_pagar);
-  const entra = num(r.tenho) + num(r.vai_entrar) + num(r.corridas);
-  const pct = falta ? Math.min(100, Math.round((entra / falta) * 100)) : 100;
+  const pct = r.cobertura;
   const abertas = r.abertas.length, atrasadas = r.abertas.filter((a) => a.atrasada).length;
   const ligado = dados.corridas.contar_na_previsao;
 
@@ -132,7 +131,7 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
     ["bills", `Contas de ${nm}`, abertas ? `${dinheiro(r.falta_pagar)} em aberto` : "tudo pago"],
     ["incomes", `Ganhos de ${nm}`, `${dinheiro(r.recebido)} recebido`],
     ["accounts", "Bancos", dinheiro(r.tenho)],
-    ["debts", "Por categoria", `${dinheiro(dividaTotal(dados.categorias))} devo`],
+    ["debts", "Por categoria", `${dinheiro(r.divida_total)} devo`],
     ["sim", "Corridas", ligado ? `${dinheiro(r.corridas)} previsto` : "fora da previsão"],
   ];
 
@@ -202,8 +201,8 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
               <div className="big">Faltam <span className="neg">{dinheiro(-sobra)}</span> para fechar {nm}</div>
               <p className="sub">O dinheiro que você tem e espera receber não cobre as {abertas} contas em aberto. Veja abaixo o que pagar primeiro.</p>
             </>)}
-            <div className={`meter ${pct < 100 ? "short" : ""}`}><i style={{ width: `${Math.max(0, pct)}%` }} /></div>
-            <div className="meter-note">{falta ? `Seu dinheiro cobre ${Math.max(0, pct)}% das contas em aberto.` : ""}</div>
+            <div className={`meter ${pct < 100 ? "short" : ""}`}><i style={{ width: `${pct}%` }} /></div>
+            <div className="meter-note">{falta ? `Seu dinheiro cobre ${pct}% das contas em aberto.` : ""}</div>
           </div>
           <div className="eq">
             <div><span className="op" /><span>Tenho nos bancos <small>{mes < MES_ATUAL ? "saldo de hoje" : "soma dos bancos, hoje"}</small></span><b>{dinheiro(r.tenho)}</b></div>

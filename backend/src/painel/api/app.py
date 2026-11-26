@@ -5,10 +5,13 @@ from collections.abc import Callable
 from datetime import date
 
 from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
+from painel.api.erros import mensagens
 from painel.api.rotas import auth, backup, cadastros, relatorios, rendas
 from painel.config import Config
 from painel.domain.erros import ErroDeValidacao
@@ -67,6 +70,17 @@ def criar_app(
     async def _erro_dominio(_: Request, erro: ErroDeValidacao) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": str(erro)}
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def _erro_entrada(_: Request, erro: RequestValidationError) -> JSONResponse:
+        # Texto em português pronto para a tela; os detalhes técnicos vão em "erros".
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={
+                "detail": mensagens(list(erro.errors())),
+                "erros": jsonable_encoder(erro.errors()),
+            },
         )
 
     @app.exception_handler(IntegrityError)

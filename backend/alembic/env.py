@@ -1,15 +1,13 @@
-import os
-
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from painel.config import url_do_banco
 from painel.infra.db import normalizar_url
 from painel.infra.modelos import Base
 
 config = context.config
-url = os.environ.get("PAINEL_DATABASE_URL")
-if url:
-    config.set_main_option("sqlalchemy.url", normalizar_url(url).replace("%", "%%"))
+# Sem PAINEL_DATABASE_URL, para com erro claro (nunca cria um SQLite local).
+config.set_main_option("sqlalchemy.url", normalizar_url(url_do_banco()).replace("%", "%%"))
 
 target_metadata = Base.metadata
 

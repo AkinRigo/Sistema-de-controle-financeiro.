@@ -17,7 +17,7 @@ Documentação interativa: http://localhost:8000/docs
 
 | Variável | Padrão |
 |---|---|
-| `PAINEL_DATABASE_URL` | `sqlite:///./painel.db` |
+| `PAINEL_DATABASE_URL` | **obrigatória**: connection string do Neon (Postgres). Sem ela o backend não sobe. |
 | `PAINEL_CHAVE_TOKEN` | aleatória (logins caem ao reiniciar) |
 | `PAINEL_VALIDADE_TOKEN` | `604800` (7 dias, em segundos) |
 | `PAINEL_CORS_ORIGENS` | `http://localhost:5173` (separe por vírgula) |

@@ -17,10 +17,12 @@ export interface ContaEntrada {
   nome: string; valor: string; tipo: Tipo; mes_inicio: string; categoria: string;
   credor: string | null; dia_vencimento: number; mes_fim: string | null;
   parcela_inicial: number | null; total_parcelas: number | null; juros_altos: boolean; incerto: boolean;
+  /** Mês aberto na tela: o backend converte "parcela N neste mês" e "virou fixa" no início certo. */
+  mes_referencia?: string | null; parcela_no_mes?: number | null;
 }
 export interface Pagamento {
   id: string; conta_id: string; mes_conta: string; valor_pago: string;
-  data_pagamento: string; banco_id: string | null;
+  data_pagamento: string; banco_id: string | null; numero_parcela: number | null;
 }
 export interface GanhoDados {
   nome: string; valor: string; data: string; recebido: boolean; banco_id: string | null;
@@ -30,20 +32,32 @@ export interface Ganho extends GanhoDados {
   /** Preenchido quando o ganho veio de uma renda fixa (um por mês). */
   renda_id: string | null;
 }
+export interface GanhoDoMes extends Ganho { atrasado: boolean }
 export interface RendaDados { nome: string; valor: string; dia: number; banco_id: string | null }
 export interface Renda extends RendaDados { id: string; mes_inicio: string }
-export interface Corridas { por_semana: string; por_fim_de_semana: string; contar_na_previsao: boolean }
+export interface Corridas {
+  por_semana: string; por_fim_de_semana: string; contar_na_previsao: boolean; estimativa_mes: string | null;
+}
+export type CorridasDados = Omit<Corridas, "estimativa_mes">;
 export interface Aberta {
   conta_id: string; nome: string; valor: string; categoria: string; mes_origem: string;
   atrasada: boolean; numero_parcela: number | null; total_parcelas: number | null;
-  dia_vencimento: number; juros_altos: boolean;
+  dia_vencimento: number; juros_altos: boolean; vence_em_dias: number | null;
+  situacao_vencimento: "venceu" | "hoje" | "em_breve" | "no_prazo" | null;
 }
 export interface Resumo {
   mes: string; tenho: string; vai_entrar: string; recebido: string; corridas: string;
   falta_pagar: string; ja_pago: string; sobra: string; abertas: Aberta[]; pagas: Pagamento[];
+  cobertura: number; divida_total: string;
+}
+export interface ItemCategoria {
+  conta_id: string; nome: string; credor: string | null; tipo: Tipo; valor: string; valor_parcela: string;
+  parcelas_restantes: number | null; total_parcelas: number | null;
+  mes_referencia: string; parcela_no_mes: number | null;
 }
 export interface Categoria {
   chave: string; nome: string; falta_pagar: string; ja_pago: string; fixas_por_mes: string; ainda_devo: string;
+  itens: ItemCategoria[];
 }
 export interface ResultadoImportacao { bancos: number; contas: number; ganhos: number; pagamentos: number; ignorados: number }
 
@@ -116,12 +130,16 @@ export const api = {
   criarConta: (c: ContaEntrada) => pedir<Conta>("POST", "/contas", c),
   editarConta: (id: string, c: ContaEntrada) => pedir<Conta>("PUT", `/contas/${id}`, c),
   excluirConta: (id: string) => pedir<void>("DELETE", `/contas/${id}`),
+  pararConta: (id: string, aPartirDe: string) => pedir<Conta>("POST", `/contas/${id}/parar`, { a_partir_de: aPartirDe }),
 
   pagar: (p: { conta_id: string; mes_conta: string; valor_pago: string; banco_id: string | null }) =>
     pedir<Pagamento>("POST", "/pagamentos", p),
   desfazerPagamento: (id: string) => pedir<void>("DELETE", `/pagamentos/${id}`),
 
-  ganhos: () => pedir<Ganho[]>("GET", "/ganhos"),
+  ganhosDoMes: (mes: string) => pedir<GanhoDoMes[]>("GET", `/ganhos/mes/${mes}`),
+  receberGanho: (id: string, valor: string, bancoId: string | null, mesAberto: string) =>
+    pedir<Ganho>("POST", `/ganhos/${id}/receber`, { valor, banco_id: bancoId, mes_aberto: mesAberto }),
+  desfazerRecebimento: (id: string) => pedir<Ganho>("POST", `/ganhos/${id}/desfazer`),
   criarGanho: (g: GanhoDados) => pedir<Ganho>("POST", "/ganhos", g),
   editarGanho: (id: string, g: GanhoDados) => pedir<Ganho>("PUT", `/ganhos/${id}`, g),
   excluirGanho: (id: string) => pedir<void>("DELETE", `/ganhos/${id}`),
@@ -131,8 +149,8 @@ export const api = {
   editarRenda: (id: string, r: RendaDados) => pedir<Renda>("PUT", `/rendas/${id}`, r),
   excluirRenda: (id: string) => pedir<void>("DELETE", `/rendas/${id}`),
 
-  corridas: () => pedir<Corridas>("GET", "/configuracoes/corridas"),
-  salvarCorridas: (c: Corridas) => pedir<Corridas>("PUT", "/configuracoes/corridas", c),
+  corridas: (mes: string) => pedir<Corridas>("GET", `/configuracoes/corridas?mes=${mes}`),
+  salvarCorridas: (c: CorridasDados) => pedir<Corridas>("PUT", "/configuracoes/corridas", c),
 
   resumo: (mes: string) => pedir<Resumo>("GET", `/resumo/${mes}`),
   categorias: (mes: string) => pedir<Categoria[]>("GET", `/categorias/${mes}`),

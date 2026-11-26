@@ -121,6 +121,8 @@ class CorridasSaida(BaseModel):
     por_semana: DinheiroSaida
     por_fim_de_semana: DinheiroSaida
     contar_na_previsao: bool
+    # estimativa para o mês pedido em ?mes= (independe de contar na previsão)
+    estimativa_mes: DinheiroSaida | None = None
 
 
 # ---------- bancos ----------
@@ -153,6 +155,14 @@ class ContaEntrada(_ComDinheiro):
     total_parcelas: int | None = None
     juros_altos: bool = False
     incerto: bool = False
+    # Editar pelo mês aberto: o backend converte "parcela N em <mês>" no início certo,
+    # e uma conta que vira fixa passa a começar no mês aberto.
+    mes_referencia: MesTexto | None = None
+    parcela_no_mes: int | None = Field(default=None, ge=1)
+
+
+class PararContaEntrada(Entrada):
+    a_partir_de: MesTexto
 
 
 class ContaSaida(BaseModel):
@@ -191,17 +201,23 @@ class PagamentoSaida(BaseModel):
     valor_pago: DinheiroSaida
     data_pagamento: date
     banco_id: str | None
+    numero_parcela: int | None = None
 
 
 # ---------- ganhos ----------
 
 
 class GanhoEntrada(_ComDinheiro):
-    nome: str = Field(min_length=1, max_length=120)
+    nome: str = Field(default="", max_length=120, validate_default=True)
     valor: DinheiroEntrada = Field(gt=0)
     data: date
     recebido: bool = False
     banco_id: str | None = None
+
+    @field_validator("nome")
+    @classmethod
+    def _nome_padrao(cls, valor: str) -> str:
+        return valor.strip() or "Ganho"
 
 
 class GanhoSaida(BaseModel):
@@ -212,6 +228,16 @@ class GanhoSaida(BaseModel):
     recebido: bool
     banco_id: str | None
     renda_id: str | None = None
+
+
+class GanhoDoMesSaida(GanhoSaida):
+    atrasado: bool
+
+
+class ReceberEntrada(_ComDinheiro):
+    valor: DinheiroEntrada = Field(gt=0)
+    banco_id: str | None = None
+    mes_aberto: MesTexto
 
 
 # ---------- renda fixa ----------
@@ -248,6 +274,8 @@ class ContaAbertaSaida(BaseModel):
     total_parcelas: int | None
     dia_vencimento: int
     juros_altos: bool
+    vence_em_dias: int | None = None
+    situacao_vencimento: str | None = None
 
 
 class ResumoSaida(BaseModel):
@@ -261,6 +289,22 @@ class ResumoSaida(BaseModel):
     sobra: DinheiroSaida
     abertas: list[ContaAbertaSaida]
     pagas: list[PagamentoSaida]
+    cobertura: int
+    divida_total: DinheiroSaida
+
+
+class ItemCategoriaSaida(BaseModel):
+    conta_id: str
+    nome: str
+    credor: str | None
+    tipo: TipoConta
+    valor: DinheiroSaida
+    valor_parcela: DinheiroSaida
+    parcelas_restantes: int | None
+    total_parcelas: int | None
+    # mês em que a tela edita esta conta e o número da parcela nele
+    mes_referencia: str
+    parcela_no_mes: int | None
 
 
 class CategoriaSaida(BaseModel):
@@ -270,6 +314,7 @@ class CategoriaSaida(BaseModel):
     ja_pago: DinheiroSaida
     fixas_por_mes: DinheiroSaida
     ainda_devo: DinheiroSaida
+    itens: list[ItemCategoriaSaida] = []
 
 
 class DividaSaida(BaseModel):

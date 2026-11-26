@@ -1,5 +1,5 @@
 import { useCtx } from "../contexto";
-import { CATEGORIAS, dinheiro } from "../util";
+import { dinheiro } from "../util";
 
 export function OpcoesBanco() {
   const { dados } = useCtx();
@@ -13,8 +13,21 @@ export function OpcoesBanco() {
   );
 }
 
+/** Categorias vindas da API. "Automática" deixa o backend escolher pelo nome e "para quem". */
 export function OpcoesCategoria() {
-  return <>{CATEGORIAS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</>;
+  const { dados } = useCtx();
+  return (
+    <>
+      <option value="">Automática (pelo nome)</option>
+      {dados.categorias.map((c) => <option key={c.chave} value={c.chave}>{c.nome}</option>)}
+    </>
+  );
+}
+
+/** Nome da categoria pela chave, como a API devolve. */
+export function useNomeCategoria() {
+  const { dados } = useCtx();
+  return (chave: string) => dados.categorias.find((c) => c.chave === chave)?.nome ?? chave;
 }
 
 export function Cancelar() {

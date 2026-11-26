@@ -12,6 +12,7 @@ from painel.api.schemas import (
     CategoriaSaida,
     ContaAbertaSaida,
     DividaSaida,
+    ItemCategoriaSaida,
     MesTexto,
     PagamentoSaida,
     ResumoSaida,
@@ -19,6 +20,14 @@ from painel.api.schemas import (
 from painel.domain.entidades import Banco, Conta, Ganho, Pagamento, Usuario
 from painel.domain.regras.categorias import CATEGORIAS, categoria_da_conta, resumir_categorias
 from painel.domain.regras.divida import calcular_divida_total
+from painel.domain.regras.painel import (
+    cobertura_percentual,
+    dias_para_vencer,
+    itens_por_categoria,
+    numero_parcela_paga,
+    referencia_para_editar,
+    situacao_vencimento,
+)
 from painel.domain.regras.resumo import calcular_resumo
 from painel.domain.valores import Dinheiro, Mes
 from painel.infra import mapeamento
@@ -74,6 +83,7 @@ def resumo(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep)
         por_fim_de_semana=Dinheiro.de(usuario.corridas_por_fim_de_semana),
         contar_na_previsao=usuario.contar_corridas,
     )
+    contas_por_id = {c.id: c for c in dados.contas}
     return ResumoSaida(
         mes=r.mes.valor,
         tenho=r.tenho.valor,
@@ -95,6 +105,10 @@ def resumo(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep)
                 total_parcelas=a.conta.total_parcelas,
                 dia_vencimento=a.conta.dia_vencimento,
                 juros_altos=a.conta.juros_altos,
+                vence_em_dias=dias_para_vencer(a.conta, r.mes, hoje, a.atrasada),
+                situacao_vencimento=situacao_vencimento(
+                    dias_para_vencer(a.conta, r.mes, hoje, a.atrasada)
+                ),
             )
             for a in r.abertas
         ],
@@ -106,9 +120,18 @@ def resumo(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep)
                 valor_pago=p.valor_pago.valor,
                 data_pagamento=p.data_pagamento,
                 banco_id=p.banco_id,
+                numero_parcela=(
+                    numero_parcela_paga(contas_por_id[p.conta_id], p)
+                    if p.conta_id in contas_por_id
+                    else None
+                ),
             )
             for p in r.pagas
         ],
+        cobertura=cobertura_percentual(r),
+        divida_total=calcular_divida_total(
+            dados.contas, dados.usuario.desde, dados.pagamentos
+        ).valor,
     )
 
 
@@ -116,6 +139,7 @@ def resumo(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep)
 def categorias(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep) -> list[CategoriaSaida]:
     dados = _carregar(sessao, usuario)
     totais = resumir_categorias(Mes(mes), dados.usuario.desde, dados.contas, dados.pagamentos)
+    itens = itens_por_categoria(Mes(mes), dados.usuario.desde, dados.contas, dados.pagamentos)
     return [
         CategoriaSaida(
             chave=chave,
@@ -124,6 +148,21 @@ def categorias(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep) -> list[Ca
             ja_pago=t.ja_pago.valor,
             fixas_por_mes=t.fixas_por_mes.valor,
             ainda_devo=t.ainda_devo.valor,
+            itens=[
+                ItemCategoriaSaida(
+                    conta_id=i.conta.id,
+                    nome=i.conta.nome,
+                    credor=i.conta.credor,
+                    tipo=i.conta.tipo,
+                    valor=i.valor.valor,
+                    valor_parcela=i.conta.valor.valor,
+                    parcelas_restantes=i.parcelas_restantes,
+                    total_parcelas=i.conta.total_parcelas,
+                    mes_referencia=referencia_para_editar(i.conta, Mes(mes))[0].valor,
+                    parcela_no_mes=referencia_para_editar(i.conta, Mes(mes))[1],
+                )
+                for i in itens.get(chave, [])
+            ],
         )
         for chave, t in totais.items()
     ]

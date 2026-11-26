@@ -21,6 +21,20 @@ def _chave_de(segredo: str) -> bytes:
     return hashlib.sha256(segredo.encode()).digest()
 
 
+SEM_BANCO = (
+    "PAINEL_DATABASE_URL não configurada. O banco do painel é o Neon: coloque a "
+    "connection string (postgresql://...neon.tech/...) no backend/.env."
+)
+
+
+def url_do_banco() -> str:
+    """Só existe um banco (Neon). Sem a variável, para com erro em vez de criar um SQLite."""
+    url = os.environ.get("PAINEL_DATABASE_URL", "").strip()
+    if not url:
+        raise RuntimeError(SEM_BANCO)
+    return url
+
+
 @dataclass(frozen=True, slots=True)
 class Config:
     database_url: str
@@ -47,7 +61,7 @@ class Config:
             chave = secrets.token_bytes(32)
         origens = os.environ.get("PAINEL_CORS_ORIGENS", "http://localhost:5173")
         return cls(
-            database_url=os.environ.get("PAINEL_DATABASE_URL", "sqlite:///./painel.db"),
+            database_url=url_do_banco(),
             chave_token=chave,
             validade_token_segundos=int(
                 os.environ.get("PAINEL_VALIDADE_TOKEN", str(60 * 60 * 24 * 7))

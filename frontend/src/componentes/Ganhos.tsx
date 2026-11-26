@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, type Ganho, type Renda } from "../api";
+import { api, type GanhoDoMes, type Renda } from "../api";
 import { bancoPadrao, useCtx } from "../contexto";
 import { HOJE, MES_ATUAL, dataCurta, dinheiro, lerDinheiro, mesCompleto, nomeMes, num, paraCampo } from "../util";
 import { Cancelar, OpcoesBanco, valorDe } from "./comuns";
@@ -9,9 +9,7 @@ import { Corridas } from "./Corridas";
 export function Ganhos() {
   const c = useCtx();
   const { dados, mes } = c;
-  const lista = dados.ganhos
-    .filter((g) => g.data.slice(0, 7) === mes || (!g.recebido && g.data.slice(0, 7) < mes))
-    .sort((a, b) => b.data.localeCompare(a.data));
+  const lista = dados.ganhos; // o backend já escolhe quais entram no mês e marca os atrasados
 
   return (
     <>
@@ -34,7 +32,7 @@ export function Ganhos() {
 
 // ---------------- renda fixa ----------------
 
-const diaValido = (v: string) => Math.min(31, Math.max(1, parseInt(v, 10) || 1));
+const inteiro = (v: string) => parseInt(v, 10);
 
 function RendasFixas() {
   const c = useCtx();
@@ -59,9 +57,9 @@ function LinhaRenda({ r }: { r: Renda }) {
 
   function salvar() {
     const nome = valorDe("rfNome").trim(), valor = lerDinheiro(valorDe("rfValor"));
-    if (!nome || valor === null || num(valor) <= 0) { c.toast("Preencha o nome e um valor maior que zero."); return; }
+    if (valor === null) { c.toast("Digite o valor."); return; }
     const banco = c.dados.bancos.length ? valorDe("rfBanco") || null : null;
-    c.executar(() => api.editarRenda(r.id, { nome, valor, dia: diaValido(valorDe("rfDia")), banco_id: banco }),
+    c.executar(() => api.editarRenda(r.id, { nome, valor, dia: inteiro(valorDe("rfDia")), banco_id: banco }),
       `${nome} atualizada. Vale a partir deste mês.`);
   }
 
@@ -107,9 +105,9 @@ function NovaRenda() {
 
   async function adicionar() {
     const v = lerDinheiro(valor);
-    if (!nome.trim() || v === null || num(v) <= 0) { c.toast("Preencha o nome e um valor maior que zero."); return; }
+    if (v === null) { c.toast("Digite o valor."); return; }
     const ok = await c.executar(
-      () => api.criarRenda({ nome: nome.trim(), valor: v, dia: diaValido(dia), banco_id: c.dados.bancos.length ? banco || null : null }),
+      () => api.criarRenda({ nome: nome.trim(), valor: v, dia: inteiro(dia), banco_id: c.dados.bancos.length ? banco || null : null }),
       `${nome.trim()} cadastrada: ${dinheiro(v)} todo mês, a partir de ${mesCompleto(MES_ATUAL)}.`);
     if (ok) { setNome(""); setValor(""); }
   }
@@ -132,27 +130,27 @@ function NovaRenda() {
 
 // ---------------- ganhos do mês ----------------
 
-function LinhaGanho({ g }: { g: Ganho }) {
+function LinhaGanho({ g }: { g: GanhoDoMes }) {
   const c = useCtx();
-  const atrasado = !g.recebido && g.data.slice(0, 7) < c.mes;
+  const atrasado = g.atrasado;
   const nomeBanco = c.dados.bancos.find((b) => b.id === g.banco_id)?.nome;
   const base = { nome: g.nome, valor: g.valor, data: g.data, recebido: g.recebido, banco_id: g.banco_id };
 
   function confirmarRecebimento() {
     const v = lerDinheiro(valorDe("recvVal"));
-    if (v === null || num(v) <= 0) { c.toast("Valor inválido."); return; }
+    if (v === null) { c.toast("Digite o valor."); return; }
     const banco = c.dados.bancos.length ? valorDe("recvAcc") || null : null;
     if (banco) c.setUltimoBanco(banco);
-    const data = g.data > HOJE || g.data.slice(0, 7) < c.mes ? HOJE : g.data;
     const nb = c.dados.bancos.find((b) => b.id === banco)?.nome;
-    c.executar(() => api.editarGanho(g.id, { ...base, valor: v, data, recebido: true, banco_id: banco }),
+    // o backend credita o banco e acerta a data do recebimento
+    c.executar(() => api.receberGanho(g.id, v, banco, c.mes),
       nb ? `${dinheiro(v)} somado ao ${nb}.` : "Marcado como recebido.");
   }
 
   function salvarEdicao() {
     const v = lerDinheiro(valorDe("ieVal")), data = valorDe("ieDate");
-    if (v === null || num(v) <= 0 || !data) { c.toast("Confira valor e data."); return; }
-    c.executar(() => api.editarGanho(g.id, { ...base, nome: valorDe("ieName").trim() || "Ganho", valor: v, data }), "Ganho atualizado.");
+    if (v === null) { c.toast("Digite o valor."); return; }
+    c.executar(() => api.editarGanho(g.id, { ...base, nome: valorDe("ieName").trim(), valor: v, data }), "Ganho atualizado.");
   }
 
   return (
@@ -169,7 +167,7 @@ function LinhaGanho({ g }: { g: Ganho }) {
       <div className="val">{dinheiro(g.valor)}</div>
       <div className="acts">
         {g.recebido
-          ? <button className="lnk" onClick={() => c.executar(() => api.editarGanho(g.id, { ...base, recebido: false, banco_id: null }),
+          ? <button className="lnk" onClick={() => c.executar(() => api.desfazerRecebimento(g.id),
               nomeBanco ? `${dinheiro(g.valor)} tirado do ${nomeBanco}.` : "Voltou para “vai entrar”.")}>Não recebi ainda</button>
           : <button className="lnk" onClick={() => c.abrir("receber:" + g.id)}>Recebi</button>}
         <button className="lnk" onClick={() => c.abrir("editarGanho:" + g.id)}>Editar</button>
@@ -210,7 +208,7 @@ function NovoGanho() {
 
   async function registrar() {
     const v = lerDinheiro(valor);
-    if (v === null || num(v) <= 0) { c.toast("Digite o valor do ganho."); return; }
+    if (v === null) { c.toast("Digite o valor do ganho."); return; }
     const dataFinal = data || HOJE;
     const idBanco = recebido && c.dados.bancos.length ? banco || null : null;
     const nb = c.dados.bancos.find((b) => b.id === idBanco)?.nome;
@@ -218,7 +216,7 @@ function NovoGanho() {
     const outroMes = dataFinal.slice(0, 7) !== c.mes;
     if (outroMes) msg += ` Ele é de ${mesCompleto(dataFinal.slice(0, 7))}, então abri esse mês.`;
     const ok = await c.executar(
-      () => api.criarGanho({ nome: nome.trim() || "Ganho", valor: v, data: dataFinal, recebido, banco_id: idBanco }), msg);
+      () => api.criarGanho({ nome: nome.trim(), valor: v, data: dataFinal, recebido, banco_id: idBanco }), msg);
     if (!ok) return;
     if (idBanco) c.setUltimoBanco(idBanco);
     setValor(""); setNome("");

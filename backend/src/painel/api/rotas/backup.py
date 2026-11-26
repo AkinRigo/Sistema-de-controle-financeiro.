@@ -7,12 +7,14 @@ vieram no arquivo: pagamentos e ganhos importados não mexem neles de novo.
 import uuid
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from typing import Annotated, Any
 
-from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Body
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import delete, select
 
-from painel.api.deps import SessaoDep, UsuarioDep
+from painel.api.backup_antigo import converter_painel_antigo
+from painel.api.deps import HojeDep, SessaoDep, UsuarioDep
 from painel.domain.entidades import Conta, TipoConta
 from painel.domain.erros import ErroDeValidacao
 from painel.domain.regras.categorias import CATEGORIAS, categoria_da_conta
@@ -231,7 +233,19 @@ def _conta_do_json(b: ContaJson, novo_id: str, usuario_id: str) -> Conta:
 
 
 @router.post("/backup", response_model=ResultadoImportacao)
-def importar(dados: BackupJson, sessao: SessaoDep, usuario: UsuarioDep) -> ResultadoImportacao:
+def importar(
+    bruto: Annotated[dict[str, Any], Body()],
+    sessao: SessaoDep,
+    usuario: UsuarioDep,
+    hoje: HojeDep,
+) -> ResultadoImportacao:
+    """Aceita o backup deste painel (versão 2) ou o do painel antigo (com "debts")."""
+    if bruto.get("version") != 2 and isinstance(bruto.get("debts"), list):
+        bruto = converter_painel_antigo(bruto, hoje)
+    try:
+        dados = BackupJson.model_validate(bruto)
+    except ValidationError:
+        raise ErroDeValidacao("Esse arquivo não parece um backup do painel.") from None
     if dados.version != 2:
         raise ErroDeValidacao("Versão de backup não suportada.")
 

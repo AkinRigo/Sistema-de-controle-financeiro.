@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { useCtx } from "../contexto";
-import { dinheiro, estimarCorridas, lerDinheiro, mesCompleto, num, paraCampo } from "../util";
+import { dinheiro, lerDinheiro, mesCompleto, num, paraCampo } from "../util";
 
 export function Corridas() {
   const c = useCtx();
@@ -17,7 +17,7 @@ export function Corridas() {
   }
 
   const temValor = num(atual.por_semana) || num(atual.por_fim_de_semana);
-  const estimativa = estimarCorridas(c.mes, num(atual.por_semana), num(atual.por_fim_de_semana));
+  const estimativa = atual.estimativa_mes; // calculada pelo backend para o mês aberto
 
   return (
     <section className="card panel on">
