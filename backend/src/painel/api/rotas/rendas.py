@@ -2,8 +2,8 @@
 
 Cada renda gera um ganho "vai entrar" por mês, a partir de `mes_inicio`, criado sob demanda
 quando alguém consulta um mês. Assim "Recebi", saldos de banco e o resumo funcionam como
-para qualquer ganho. Editar ou excluir a renda mexe só nos ganhos ainda não recebidos do
-mês atual em diante; o histórico recebido fica como está.
+para qualquer ganho. Editar a renda atualiza os ganhos ainda não recebidos do mês atual em
+diante; excluir apaga todos os não recebidos. O histórico recebido fica como está.
 """
 
 import calendar
@@ -161,11 +161,10 @@ def editar_renda(
 
 
 @router.delete("/rendas/{renda_id}", status_code=status.HTTP_204_NO_CONTENT)
-def excluir_renda(
-    renda_id: str, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep
-) -> Response:
+def excluir_renda(renda_id: str, sessao: SessaoDep, usuario: UsuarioDep) -> Response:
+    """Some com a renda e com todos os meses dela ainda não recebidos; os recebidos ficam."""
     renda = _da_conta(sessao, renda_id, usuario)
-    for g in _pendentes_a_partir(sessao, renda, _mes_de(hoje)):
+    for g in _pendentes_a_partir(sessao, renda, Mes("0001-01")):
         sessao.delete(g)
     sessao.flush()
     sessao.delete(renda)

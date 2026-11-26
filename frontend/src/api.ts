@@ -22,9 +22,16 @@ export interface Pagamento {
   id: string; conta_id: string; mes_conta: string; valor_pago: string;
   data_pagamento: string; banco_id: string | null;
 }
-export interface Ganho {
-  id: string; nome: string; valor: string; data: string; recebido: boolean; banco_id: string | null;
+export interface GanhoDados {
+  nome: string; valor: string; data: string; recebido: boolean; banco_id: string | null;
 }
+export interface Ganho extends GanhoDados {
+  id: string;
+  /** Preenchido quando o ganho veio de uma renda fixa (um por mês). */
+  renda_id: string | null;
+}
+export interface RendaDados { nome: string; valor: string; dia: number; banco_id: string | null }
+export interface Renda extends RendaDados { id: string; mes_inicio: string }
 export interface Corridas { por_semana: string; por_fim_de_semana: string; contar_na_previsao: boolean }
 export interface Aberta {
   conta_id: string; nome: string; valor: string; categoria: string; mes_origem: string;
@@ -115,9 +122,14 @@ export const api = {
   desfazerPagamento: (id: string) => pedir<void>("DELETE", `/pagamentos/${id}`),
 
   ganhos: () => pedir<Ganho[]>("GET", "/ganhos"),
-  criarGanho: (g: Omit<Ganho, "id">) => pedir<Ganho>("POST", "/ganhos", g),
-  editarGanho: (id: string, g: Omit<Ganho, "id">) => pedir<Ganho>("PUT", `/ganhos/${id}`, g),
+  criarGanho: (g: GanhoDados) => pedir<Ganho>("POST", "/ganhos", g),
+  editarGanho: (id: string, g: GanhoDados) => pedir<Ganho>("PUT", `/ganhos/${id}`, g),
   excluirGanho: (id: string) => pedir<void>("DELETE", `/ganhos/${id}`),
+
+  rendas: () => pedir<Renda[]>("GET", "/rendas"),
+  criarRenda: (r: RendaDados) => pedir<Renda>("POST", "/rendas", r),
+  editarRenda: (id: string, r: RendaDados) => pedir<Renda>("PUT", `/rendas/${id}`, r),
+  excluirRenda: (id: string) => pedir<void>("DELETE", `/rendas/${id}`),
 
   corridas: () => pedir<Corridas>("GET", "/configuracoes/corridas"),
   salvarCorridas: (c: Corridas) => pedir<Corridas>("PUT", "/configuracoes/corridas", c),

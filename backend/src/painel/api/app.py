@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
-from painel.api.rotas import auth, backup, cadastros, relatorios
+from painel.api.rotas import auth, backup, cadastros, relatorios, rendas
 from painel.config import Config
 from painel.domain.erros import ErroDeValidacao
 from painel.infra.db import criar_engine, criar_fabrica_sessoes
@@ -84,4 +84,5 @@ def criar_app(
     app.include_router(cadastros.router)
     app.include_router(relatorios.router)
     app.include_router(backup.router)
+    app.include_router(rendas.router)
     return app

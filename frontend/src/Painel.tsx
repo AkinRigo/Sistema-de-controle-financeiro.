@@ -25,10 +25,13 @@ function aplicarTema(t: Tema) {
 }
 
 async function carregar(mes: string): Promise<Dados> {
-  const [usuario, contas, bancos, ganhos, corridas, resumo, categorias] = await Promise.all([
-    api.eu(), api.contas(), api.bancos(), api.ganhos(), api.corridas(), api.resumo(mes), api.categorias(mes),
+  // O resumo vem primeiro: ele gera os ganhos das rendas fixas até este mês,
+  // e a lista de ganhos (pedida depois) já chega com eles.
+  const resumo = await api.resumo(mes);
+  const [usuario, contas, bancos, ganhos, rendas, corridas, categorias] = await Promise.all([
+    api.eu(), api.contas(), api.bancos(), api.ganhos(), api.rendas(), api.corridas(), api.categorias(mes),
   ]);
-  return { usuario, contas, bancos, ganhos, corridas, resumo, categorias };
+  return { usuario, contas, bancos, ganhos, rendas, corridas, resumo, categorias };
 }
 
 export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => void }) {
@@ -204,7 +207,15 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
           </div>
           <div className="eq">
             <div><span className="op" /><span>Tenho nos bancos <small>{mes < MES_ATUAL ? "saldo de hoje" : "soma dos bancos, hoje"}</small></span><b>{dinheiro(r.tenho)}</b></div>
-            <div><span className="op">+</span><span>Vai entrar <small>ganhos marcados como “vai entrar”</small></span><b>{dinheiro(r.vai_entrar)}</b></div>
+            <div>
+              <span className="op">+</span>
+              <span>
+                Vai entrar{" "}
+                <button type="button" className="lnk" onClick={() => { setVista("incomes"); setAberto("novoGanho"); }}>+ adicionar</button>
+                <small>renda fixa e ganhos marcados como “vai entrar”</small>
+              </span>
+              <b>{dinheiro(r.vai_entrar)}</b>
+            </div>
             {ligado && (
               <div><span className="op">+</span><span>Corridas (estimativa) <small>{mes === MES_ATUAL ? "dias que faltam no mês" : "mês inteiro"}</small></span><b>{dinheiro(r.corridas)}</b></div>
             )}

@@ -1,11 +1,12 @@
 import { createContext, useContext } from "react";
-import type { Banco, Categoria, Conta, Corridas, Ganho, Resumo, Usuario } from "./api";
+import type { Banco, Categoria, Conta, Corridas, Ganho, Renda, Resumo, Usuario } from "./api";
 
 export interface Dados {
   usuario: Usuario;
   contas: Conta[];
   bancos: Banco[];
   ganhos: Ganho[];
+  rendas: Renda[];
   corridas: Corridas;
   resumo: Resumo;
   categorias: Categoria[];

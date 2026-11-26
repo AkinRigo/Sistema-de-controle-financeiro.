@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { api, type Ganho } from "../api";
+import { api, type Ganho, type Renda } from "../api";
 import { bancoPadrao, useCtx } from "../contexto";
 import { HOJE, MES_ATUAL, dataCurta, dinheiro, lerDinheiro, mesCompleto, nomeMes, num, paraCampo } from "../util";
 import { Cancelar, OpcoesBanco, valorDe } from "./comuns";
+import { Corridas } from "./Corridas";
 
+/** Tudo que entra: renda fixa, ganhos do mês e a estimativa de corridas. */
 export function Ganhos() {
   const c = useCtx();
   const { dados, mes } = c;
@@ -12,19 +14,123 @@ export function Ganhos() {
     .sort((a, b) => b.data.localeCompare(a.data));
 
   return (
+    <>
+      <RendasFixas />
+      <section className="card panel on">
+        <h2>Ganhos de {nomeMes(mes)}</h2>
+        <p className="hint">“Já recebi” coloca o dinheiro no banco. “Vai entrar” conta na previsão.</p>
+        <div>
+          {lista.length ? lista.map((g) => <LinhaGanho key={g.id} g={g} />) : <div className="empty">Nenhum ganho neste mês ainda.</div>}
+          {lista.length > 0 && (
+            <div className="total"><span>Recebido em {nomeMes(mes)}</span><b>{dinheiro(dados.resumo.recebido)}</b></div>
+          )}
+        </div>
+        <NovoGanho key={mes} />
+      </section>
+      <Corridas key={mes} />
+    </>
+  );
+}
+
+// ---------------- renda fixa ----------------
+
+const diaValido = (v: string) => Math.min(31, Math.max(1, parseInt(v, 10) || 1));
+
+function RendasFixas() {
+  const c = useCtx();
+  const rendas = c.dados.rendas;
+  const total = rendas.reduce((s, r) => s + num(r.valor), 0);
+  return (
     <section className="card panel on">
-      <h2>Ganhos de {nomeMes(mes)}</h2>
-      <p className="hint">“Já recebi” coloca o dinheiro no banco. “Vai entrar” conta na previsão.</p>
+      <h2>Renda fixa</h2>
+      <p className="hint">Salário, pensão, aluguel que você recebe… Cadastre uma vez: todo mês ela aparece sozinha como “vai entrar”. Quando cair, marque “Recebi” nos ganhos do mês.</p>
       <div>
-        {lista.length ? lista.map((g) => <LinhaGanho key={g.id} g={g} />) : <div className="empty">Nenhum ganho neste mês ainda.</div>}
-        {lista.length > 0 && (
-          <div className="total"><span>Recebido em {nomeMes(mes)}</span><b>{dinheiro(dados.resumo.recebido)}</b></div>
-        )}
+        {rendas.length ? rendas.map((r) => <LinhaRenda key={r.id} r={r} />) : <div className="empty">Nenhuma renda fixa ainda.</div>}
+        {rendas.length > 0 && <div className="total"><span>Entra todo mês</span><b>{dinheiro(total)}</b></div>}
       </div>
-      <NovoGanho key={mes} />
+      <NovaRenda />
     </section>
   );
 }
+
+function LinhaRenda({ r }: { r: Renda }) {
+  const c = useCtx();
+  const nomeBanco = c.dados.bancos.find((b) => b.id === r.banco_id)?.nome;
+
+  function salvar() {
+    const nome = valorDe("rfNome").trim(), valor = lerDinheiro(valorDe("rfValor"));
+    if (!nome || valor === null || num(valor) <= 0) { c.toast("Preencha o nome e um valor maior que zero."); return; }
+    const banco = c.dados.bancos.length ? valorDe("rfBanco") || null : null;
+    c.executar(() => api.editarRenda(r.id, { nome, valor, dia: diaValido(valorDe("rfDia")), banco_id: banco }),
+      `${nome} atualizada. Vale a partir deste mês.`);
+  }
+
+  return (
+    <div className="row noico">
+      <div>
+        <div className="nm">{r.nome}<span className="tag">todo mês</span></div>
+        <div className="meta">cai dia {r.dia}{nomeBanco ? " · no " + nomeBanco : ""}</div>
+      </div>
+      <div className="val">{dinheiro(r.valor)}</div>
+      <div className="acts">
+        <button className="lnk" onClick={() => c.abrir("editarRenda:" + r.id)}>Editar</button>
+        <button className="lnk red" onClick={() => c.abrir("excluirRenda:" + r.id)}>Excluir</button>
+      </div>
+      {c.aberto === "editarRenda:" + r.id && (
+        <div className="box">
+          <label className="f">Nome<input id="rfNome" defaultValue={r.nome} /></label>
+          <label className="f">Valor (R$)<input id="rfValor" inputMode="decimal" defaultValue={paraCampo(r.valor)} /></label>
+          <label className="f">Cai todo dia<input id="rfDia" type="number" min={1} max={31} defaultValue={r.dia} /></label>
+          {c.dados.bancos.length > 0 && (
+            <label className="f">Cai em qual banco<select id="rfBanco" defaultValue={r.banco_id ?? ""}><OpcoesBanco /></select></label>
+          )}
+          <button className="btn pri" onClick={salvar}>Salvar</button><Cancelar />
+        </div>
+      )}
+      {c.aberto === "excluirRenda:" + r.id && (
+        <div className="box">
+          <p>Excluir <b>{r.nome}</b>? Os meses que ainda não entraram somem da previsão; o que você já recebeu continua registrado.</p>
+          <button className="btn danger" onClick={() => c.executar(() => api.excluirRenda(r.id), `${r.nome} excluída.`)}>Excluir</button>
+          <Cancelar />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NovaRenda() {
+  const c = useCtx();
+  const [nome, setNome] = useState("");
+  const [valor, setValor] = useState("");
+  const [dia, setDia] = useState("5");
+  const [banco, setBanco] = useState(bancoPadrao(c));
+
+  async function adicionar() {
+    const v = lerDinheiro(valor);
+    if (!nome.trim() || v === null || num(v) <= 0) { c.toast("Preencha o nome e um valor maior que zero."); return; }
+    const ok = await c.executar(
+      () => api.criarRenda({ nome: nome.trim(), valor: v, dia: diaValido(dia), banco_id: c.dados.bancos.length ? banco || null : null }),
+      `${nome.trim()} cadastrada: ${dinheiro(v)} todo mês, a partir de ${mesCompleto(MES_ATUAL)}.`);
+    if (ok) { setNome(""); setValor(""); }
+  }
+
+  return (
+    <details className="add">
+      <summary>+ Adicionar renda fixa</summary>
+      <div className="form">
+        <label className="f">Nome<input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: salário, pensão" /></label>
+        <label className="f">Valor por mês (R$)<input value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" placeholder="0,00" /></label>
+        <label className="f">Cai todo dia<input value={dia} onChange={(e) => setDia(e.target.value)} type="number" min={1} max={31} /></label>
+        {c.dados.bancos.length > 0 && (
+          <label className="f">Cai em qual banco<select value={banco} onChange={(e) => setBanco(e.target.value)}><OpcoesBanco /></select></label>
+        )}
+        <button className="btn pri" onClick={adicionar}>Adicionar</button>
+      </div>
+    </details>
+  );
+}
+
+// ---------------- ganhos do mês ----------------
 
 function LinhaGanho({ g }: { g: Ganho }) {
   const c = useCtx();
@@ -54,6 +160,7 @@ function LinhaGanho({ g }: { g: Ganho }) {
       <div>
         <div className="nm">
           {g.nome}
+          {g.renda_id && <span className="tag">renda fixa</span>}
           {g.recebido ? <span className="tag green">recebido</span>
             : atrasado ? <span className="tag red">ainda não entrou</span> : <span className="tag blue">vai entrar</span>}
         </div>
@@ -93,10 +200,12 @@ function LinhaGanho({ g }: { g: Ganho }) {
 
 function NovoGanho() {
   const c = useCtx();
+  // Aberto pelo atalho "+ adicionar" do resumo: já vem aberto e em "Vai entrar".
+  const peloAtalho = c.aberto === "novoGanho";
   const [valor, setValor] = useState("");
   const [nome, setNome] = useState("");
   const [data, setData] = useState(c.mes === MES_ATUAL ? HOJE : c.mes + "-01");
-  const [recebido, setRecebido] = useState(true);
+  const [recebido, setRecebido] = useState(!peloAtalho);
   const [banco, setBanco] = useState(bancoPadrao(c));
 
   async function registrar() {
@@ -117,7 +226,7 @@ function NovoGanho() {
   }
 
   return (
-    <details className="add">
+    <details className="add" open={peloAtalho || undefined}>
       <summary>+ Registrar ganho</summary>
       <div className="form">
         <label className="f">Valor (R$)<input value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" placeholder="0,00" /></label>

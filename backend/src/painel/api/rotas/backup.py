@@ -24,6 +24,7 @@ from painel.infra.modelos import (
     ContaModelo,
     GanhoModelo,
     PagamentoModelo,
+    RendaFixaModelo,
 )
 
 router = APIRouter(tags=["backup"])
@@ -52,6 +53,17 @@ class GanhoJson(_Solto):
     value: float | str | int = 0
     date: date
     received: bool = False
+    accountId: str | None = None
+    fixedIncomeId: str | None = None
+    fixedMonth: str | None = None
+
+
+class RendaJson(_Solto):
+    id: str
+    name: str = "Renda"
+    value: float | str | int = 0
+    day: int = 1
+    startMonth: str
     accountId: str | None = None
 
 
@@ -91,6 +103,7 @@ class BackupJson(_Solto):
     bills: list[ContaJson] = Field(default_factory=list)
     payments: dict[str, dict[str, PagamentoJson]] = Field(default_factory=dict)
     sim: CorridasJson = Field(default_factory=CorridasJson)
+    fixedIncomes: list[RendaJson] = Field(default_factory=list)
 
 
 class ResultadoImportacao(BaseModel):
@@ -164,8 +177,21 @@ def exportar(sessao: SessaoDep, usuario: UsuarioDep) -> dict:
                 "date": g.data.isoformat(),
                 "received": g.recebido,
                 "accountId": g.banco_id,
+                "fixedIncomeId": g.renda_id,
+                "fixedMonth": g.mes_renda,
             }
             for g in todos(GanhoModelo)
+        ],
+        "fixedIncomes": [
+            {
+                "id": r.id,
+                "name": r.nome,
+                "value": _texto(r.valor),
+                "day": r.dia,
+                "startMonth": r.mes_inicio,
+                "accountId": r.banco_id,
+            }
+            for r in todos(RendaFixaModelo)
         ],
         "bills": bills,
         "payments": pagamentos,
@@ -216,8 +242,10 @@ def importar(dados: BackupJson, sessao: SessaoDep, usuario: UsuarioDep) -> Resul
         novo = str(uuid.uuid4())
         contas[b.id] = (_conta_do_json(b, novo, usuario.id), b.uncertain)
     desde = Mes(dados.since).valor if dados.since else usuario.desde
+    ids_renda = {r.id: str(uuid.uuid4()) for r in dados.fixedIncomes}
+    meses_renda = {r.id: Mes(r.startMonth).valor for r in dados.fixedIncomes}
 
-    for modelo in (PagamentoModelo, GanhoModelo, ContaModelo, BancoModelo):
+    for modelo in (PagamentoModelo, GanhoModelo, RendaFixaModelo, ContaModelo, BancoModelo):
         sessao.execute(delete(modelo).where(modelo.usuario_id == usuario.id))
 
     usuario.desde = desde
@@ -253,7 +281,27 @@ def importar(dados: BackupJson, sessao: SessaoDep, usuario: UsuarioDep) -> Resul
                 incerto=incerto,
             )
         )
+    for r in dados.fixedIncomes:
+        sessao.add(
+            RendaFixaModelo(
+                id=ids_renda[r.id],
+                usuario_id=usuario.id,
+                nome=r.name.strip() or "Renda",
+                valor=_dinheiro(r.value),
+                dia=max(1, min(31, r.day)),
+                mes_inicio=meses_renda[r.id],
+                banco_id=ids_banco.get(r.accountId) if r.accountId else None,
+            )
+        )
+    sessao.flush()  # rendas e bancos antes dos ganhos que apontam para eles
+    vistos: set[tuple[str, str]] = set()
     for g in dados.incomes:
+        renda_id = ids_renda.get(g.fixedIncomeId) if g.fixedIncomeId else None
+        mes_renda = g.fixedMonth if renda_id else None
+        if renda_id and (renda_id, mes_renda) in vistos:
+            continue  # mês repetido da mesma renda no arquivo
+        if renda_id:
+            vistos.add((renda_id, mes_renda))
         sessao.add(
             GanhoModelo(
                 id=str(uuid.uuid4()),
@@ -263,6 +311,8 @@ def importar(dados: BackupJson, sessao: SessaoDep, usuario: UsuarioDep) -> Resul
                 data=g.date,
                 recebido=g.received,
                 banco_id=ids_banco.get(g.accountId) if g.accountId else None,
+                renda_id=renda_id,
+                mes_renda=mes_renda,
             )
         )
     sessao.flush()

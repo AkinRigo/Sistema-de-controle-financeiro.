@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from painel.api.deps import HojeDep, SessaoDep, UsuarioDep
+from painel.api.rotas.rendas import garantir_rendas
 from painel.api.schemas import (
     CategoriaSaida,
     ContaAbertaSaida,
@@ -59,6 +60,7 @@ def _carregar(sessao: Session, usuario: UsuarioModelo) -> _Dados:
 
 @router.get("/resumo/{mes}", response_model=ResumoSaida)
 def resumo(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep) -> ResumoSaida:
+    garantir_rendas(sessao, usuario, Mes(mes))
     dados = _carregar(sessao, usuario)
     r = calcular_resumo(
         mes=Mes(mes),
