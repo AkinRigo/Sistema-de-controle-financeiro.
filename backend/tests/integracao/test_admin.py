@@ -47,3 +47,26 @@ def test_get_current_user_e_a_dependencia_das_rotas():
     from painel.api.deps import get_current_user, obter_usuario_atual
 
     assert get_current_user is obter_usuario_atual
+
+
+def test_usuario_admin_usa_o_proprio_login(caixa):
+    from integracao.conftest import cadastrar
+
+    app = criar_app_teste(caixa, admin_api_key="")
+    c = TestClient(app)
+    auth = cadastrar(c, "akin@ex.com")
+    assert c.get("/auth/eu", headers=auth).json()["admin"] is False
+    # usuário comum logado: proibido
+    assert c.post("/admin/users", json=NOVO, headers=auth).status_code == 403
+
+    sessao = app.state.fabrica_sessoes()
+    from painel.infra.modelos import UsuarioModelo
+
+    u = sessao.query(UsuarioModelo).filter_by(email="akin@ex.com").one()
+    u.admin = True
+    sessao.commit()
+    sessao.close()
+
+    assert c.get("/auth/eu", headers=auth).json()["admin"] is True
+    r = c.post("/admin/users", json=NOVO, headers=auth)
+    assert r.status_code == 201  # sem ADMIN_API_KEY, só com o login de admin

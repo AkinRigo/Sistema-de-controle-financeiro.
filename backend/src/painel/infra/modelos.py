@@ -36,6 +36,7 @@ class UsuarioModelo(Base):
     corridas_por_fim_de_semana: Mapped[Decimal] = mapped_column(DINHEIRO, default=Decimal("0"))
     contar_corridas: Mapped[bool] = mapped_column(Boolean, default=False)
     email_confirmado: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -100,6 +100,7 @@ class UsuarioSaida(BaseModel):
     nome: str
     email: str
     desde: str
+    admin: bool = False
 
 
 class TokenSaida(BaseModel):

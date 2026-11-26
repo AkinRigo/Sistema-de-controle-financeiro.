@@ -1,22 +1,48 @@
-"""Rotas de administração, protegidas pela ADMIN_API_KEY (header X-Admin-Key)."""
+"""Rotas de administração.
+
+Aceitam o login de um usuário administrador (Bearer PASETO de quem tem `admin`) ou a
+ADMIN_API_KEY no header X-Admin-Key (útil para scripts).
+"""
 
 import hmac
 import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 
-from painel.api.deps import HojeDep, SessaoDep
+from painel.api.deps import EmissorDep, HojeDep, SessaoDep
 from painel.api.schemas import CadastroEntrada, UsuarioSaida
 from painel.infra.modelos import UsuarioModelo
-from painel.infra.seguranca import gerar_hash_senha
+from painel.infra.seguranca import TokenInvalido, gerar_hash_senha
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+def _usuario_admin(
+    sessao: SessaoDep, emissor: EmissorDep, credenciais: HTTPAuthorizationCredentials | None
+) -> UsuarioModelo | None:
+    if credenciais is None:
+        return None
+    try:
+        usuario = sessao.get(UsuarioModelo, emissor.validar(credenciais.credentials))
+    except TokenInvalido:
+        return None
+    if usuario is not None and not usuario.admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Só administradores.")
+    return usuario
 
 
 def exigir_admin(
     request: Request,
+    sessao: SessaoDep,
+    emissor: EmissorDep,
+    credenciais: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
     x_admin_key: Annotated[str | None, Header(description="valor da ADMIN_API_KEY")] = None,
 ) -> None:
+    if _usuario_admin(sessao, emissor, credenciais) is not None:
+        return
     chave = request.app.state.config.admin_api_key
     if not chave:
         raise HTTPException(

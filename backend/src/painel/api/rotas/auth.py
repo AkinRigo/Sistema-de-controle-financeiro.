@@ -35,7 +35,13 @@ _NAO_CONFIRMADO = "Confirme seu e-mail antes de entrar. Procure o link que envia
 
 
 def _saida(usuario: UsuarioModelo) -> UsuarioSaida:
-    return UsuarioSaida(id=usuario.id, nome=usuario.nome, email=usuario.email, desde=usuario.desde)
+    return UsuarioSaida(
+        id=usuario.id,
+        nome=usuario.nome,
+        email=usuario.email,
+        desde=usuario.desde,
+        admin=bool(usuario.admin),
+    )
 
 
 def _por_email(sessao: Session, email: str) -> UsuarioModelo | None:
