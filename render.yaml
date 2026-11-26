@@ -11,7 +11,8 @@ services:
     buildCommand: pip install .
     startCommand: alembic upgrade head && uvicorn painel.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /saude
-    autoDeploy: true
+    # Só publica depois que o CI (GitHub Actions) passar.
+    autoDeployTrigger: checksPass
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.8"
