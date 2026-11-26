@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "painel-financeiro"
+version = "0.1.0"
+description = "Backend do Painel Financeiro"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.13,<2",
+    "argon2-cffi>=23.1,<26",
+    "fastapi>=0.115,<1",
+    "pydantic>=2.9,<3",
+    "pyseto>=1.8,<2",
+    "sqlalchemy>=2,<3",
+    "uvicorn[standard]>=0.30,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "coverage[toml]>=7.6,<8",
+    "httpx>=0.27,<1",
+    "pytest>=8.3,<9",
+    "ruff>=0.8,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+branch = true
+source = ["painel.domain"]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
