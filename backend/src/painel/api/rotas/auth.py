@@ -42,18 +42,23 @@ def _por_email(sessao: Session, email: str) -> UsuarioModelo | None:
     return sessao.scalar(select(UsuarioModelo).where(UsuarioModelo.email == email))
 
 
-def _email(nome: str, intro: str, link: str, botao: str, validade: str) -> tuple[str, str]:
+def _email(saudacao: str, intro: str, link: str, botao: str, validade: str) -> tuple[str, str]:
     texto = (
-        f"Oi, {nome}!\n\n{intro}\n"
+        f"{saudacao}\n\n{intro}\n"
         f"Abra este link ({validade}):\n\n{link}\n\n"
-        "Se não foi você, é só ignorar este e-mail."
+        "Se não foi você, é só ignorar este e-mail.\n\n— No Corre das Notas"
     )
     corpo_html = (
-        f"<p>Oi, {html.escape(nome)}!</p><p>{html.escape(intro)}</p>"
-        f'<p><a href="{html.escape(link)}" style="display:inline-block;background:#1240e0;'
-        "color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;"
-        f'font-weight:600">{html.escape(botao)}</a></p>'
-        f"<p>O link {html.escape(validade)}. Se não foi você, é só ignorar este e-mail.</p>"
+        '<div style="font-family:Arial,sans-serif;max-width:520px;color:#141414">'
+        '<p style="font-size:22px;font-weight:700;color:#6d28d9;margin:0 0 16px">'
+        "No Corre das Notas</p>"
+        f'<p style="font-size:18px;font-weight:700">{html.escape(saudacao)}</p>'
+        f"<p>{html.escape(intro)}</p>"
+        f'<p><a href="{html.escape(link)}" style="display:inline-block;background:#6d28d9;'
+        "color:#fff;padding:14px 22px;border:3px solid #141414;border-radius:12px;"
+        f'text-decoration:none;font-weight:700">{html.escape(botao)}</a></p>'
+        f'<p style="color:#4a4458">O link {html.escape(validade)}. '
+        "Se não foi você, é só ignorar este e-mail.</p></div>"
     )
     return texto, corpo_html
 
@@ -75,13 +80,16 @@ def _enviar_confirmacao(
 ) -> None:
     link = _link(request, "confirmar", emissor.emitir_confirmacao(usuario.id))
     corpo = _email(
-        usuario.nome,
-        "Sua conta no Painel Financeiro foi criada. Falta só confirmar este e-mail.",
+        f"Seja bem-vindo(a) ao No Corre das Notas, {usuario.nome}!",
+        "Sua conta foi criada. Clique no botão abaixo para ativar e depois é só "
+        "entrar com seu e-mail e senha.",
         link,
         "Ativar minha conta",
         "vale por 24 horas",
     )
-    _agendar_envio(request, tarefas, usuario.email, "Ative sua conta no Painel Financeiro", corpo)
+    _agendar_envio(
+        request, tarefas, usuario.email, "Bem-vindo ao No Corre das Notas! Ative sua conta", corpo
+    )
 
 
 # ---------------- cadastro e confirmação ----------------
@@ -183,14 +191,14 @@ def esqueci_senha(
     if usuario is not None:
         token = emissor.emitir_redefinicao(usuario.id, usuario.senha_hash)
         corpo = _email(
-            usuario.nome,
-            "Recebemos um pedido para trocar a senha do seu Painel Financeiro.",
+            f"Oi, {usuario.nome}!",
+            "Recebemos um pedido para trocar a senha da sua conta no No Corre das Notas.",
             _link(request, "redefinir", token),
             "Criar senha nova",
             "vale por 30 minutos",
         )
         _agendar_envio(
-            request, tarefas, usuario.email, "Trocar a senha do Painel Financeiro", corpo
+            request, tarefas, usuario.email, "Trocar a senha do No Corre das Notas", corpo
         )
     return {"detail": "Se esse e-mail tiver cadastro, enviamos um link para trocar a senha."}
 

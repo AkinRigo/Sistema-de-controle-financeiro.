@@ -9,14 +9,21 @@ type Modo = "entrar" | "cadastrar" | "esqueci" | "redefinir" | "aguardando" | "c
 const parametro = (nome: string) => new URLSearchParams(window.location.search).get(nome);
 const limparLink = () => window.history.replaceState(null, "", window.location.pathname);
 
-const TITULOS: Record<Modo, string> = {
-  entrar: "Entre para ver suas contas.",
-  cadastrar: "Crie sua conta. Vamos mandar um link para confirmar seu e-mail.",
-  esqueci: "Digite seu e-mail. Vamos mandar um link para você criar uma senha nova.",
-  redefinir: "Escolha sua senha nova.",
-  aguardando: "Falta só ativar sua conta.",
-  confirmando: "Ativando sua conta…",
+const TITULOS: Record<Modo, [string, string]> = {
+  entrar: ["Entrar", "Use seu e-mail e senha."],
+  cadastrar: ["Cadastrar", "Depois do cadastro, enviamos um e-mail para você ativar sua conta."],
+  esqueci: ["Esqueci minha senha", "Digite seu e-mail. Vamos mandar um link para você criar uma senha nova."],
+  redefinir: ["Nova senha", "Escolha sua senha nova."],
+  aguardando: ["Confira seu e-mail", "Falta só ativar sua conta."],
+  confirmando: ["Ativando…", "Ativando sua conta…"],
 };
+
+const Titulo = ({ modo }: { modo: Modo }) => (
+  <>
+    <h2 style={{ margin: 0 }}>{TITULOS[modo][0]}</h2>
+    <p className="hint" style={{ margin: 0 }}>{TITULOS[modo][1]}</p>
+  </>
+);
 
 function Moldura({ children }: { children: React.ReactNode }) {
   return (
@@ -51,15 +58,22 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
     aoEntrar(r.usuario);
   }
 
-  // Link de ativação do e-mail: confirma e já entra.
+  // Link de ativação do e-mail: ativa a conta e volta para o login com e-mail e senha.
   useEffect(() => {
     if (!linkConfirmar || confirmou.current) return;
     confirmou.current = true; // StrictMode roda o efeito duas vezes em dev
-    api.confirmarEmail(linkConfirmar).then(entrarCom).catch((e) => {
-      limparLink();
-      setModo("entrar");
-      setErro((e as Error).message + " Entre com seu e-mail e senha para receber outro link.");
-    });
+    api.confirmarEmail(linkConfirmar)
+      .then((r) => {
+        setEmail(r.usuario.email);
+        setAviso("Conta ativada! Agora entre com seu e-mail e senha.");
+      })
+      .catch((e) => {
+        setErro((e as Error).message + " Entre com seu e-mail e senha para receber outro link.");
+      })
+      .finally(() => {
+        limparLink();
+        setModo("entrar");
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -100,15 +114,15 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
     }
   }
 
-  if (modo === "confirmando") return <Moldura><div className="card"><MarcaMini /><p className="hint">{TITULOS.confirmando}</p></div></Moldura>;
+  if (modo === "confirmando") return <Moldura><div className="card"><MarcaMini /><Titulo modo="confirmando" /></div></Moldura>;
 
   if (modo === "aguardando") {
     return (
       <Moldura>
         <div className="card">
           <MarcaMini />
-          <p className="hint">{TITULOS.aguardando}</p>
-          <p>Enviamos um link para <b>{email}</b>. Abra o e-mail e clique em <b>Ativar minha conta</b>. Se não achar, veja a caixa de spam.</p>
+          <Titulo modo="aguardando" />
+          <p>Enviamos um e-mail de boas-vindas para <b>{email}</b>. Abra o e-mail e clique em <b>Ativar minha conta</b>. Se não achar, veja a caixa de spam.</p>
           {erro && <p className="erro" role="alert">{erro}</p>}
           {aviso && <p className="hint" role="status" style={{ color: "var(--green)" }}>{aviso}</p>}
           <button className="btn" onClick={reenviar}>Reenviar e-mail</button>
@@ -124,13 +138,7 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
     <Moldura>
       <form className="card" onSubmit={enviar}>
         <MarcaMini />
-        {(modo === "entrar" || modo === "cadastrar") && (
-          <div className="tabs" role="tablist" style={{ margin: 0 }}>
-            <button type="button" role="tab" aria-selected={modo === "entrar"} className={`tab ${modo === "entrar" ? "on" : ""}`} onClick={() => trocar("entrar")}>Entrar</button>
-            <button type="button" role="tab" aria-selected={modo === "cadastrar"} className={`tab ${modo === "cadastrar" ? "on" : ""}`} onClick={() => trocar("cadastrar")}>Criar conta</button>
-          </div>
-        )}
-        <p className="hint">{TITULOS[modo]}</p>
+        <Titulo modo={modo} />
         {modo === "cadastrar" && (
           <label className="f">Nome<input value={nome} onChange={(e) => setNome(e.target.value)} required autoComplete="name" /></label>
         )}
@@ -145,16 +153,19 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
           </label>
         )}
         {erro && <p className="erro" role="alert">{erro}</p>}
-        {podeReenviar && <button type="button" className="btn" onClick={reenviar}>Reenviar e-mail de confirmação</button>}
-        {aviso && <p className="hint" role="status" style={{ color: "var(--green)" }}>{aviso}</p>}
+        {podeReenviar && <button type="button" className="btn" onClick={reenviar}>Reenviar e-mail de ativação</button>}
+        {aviso && <p className="hint" role="status" style={{ color: "var(--green)", fontWeight: 600 }}>{aviso}</p>}
         <button className="btn pri" disabled={enviando}>
-          {{ entrar: "Entrar", cadastrar: "Criar conta", esqueci: "Mandar link", redefinir: "Salvar senha e entrar" }[modo]}
+          {{ entrar: "Entrar", cadastrar: "Cadastrar", esqueci: "Mandar link", redefinir: "Salvar senha e entrar" }[modo]}
         </button>
         {modo === "entrar" && (
-          <button type="button" className="lnk" style={{ justifySelf: "start" }} onClick={() => trocar("esqueci")}>Esqueci minha senha</button>
+          <>
+            <button type="button" className="lnk" style={{ justifySelf: "start" }} onClick={() => trocar("esqueci")}>Esqueci minha senha</button>
+            <p className="troca">Não tem conta? <button type="button" className="lnk" onClick={() => trocar("cadastrar")}>Cadastrar</button></p>
+          </>
         )}
-        {(modo === "esqueci" || modo === "redefinir") && (
-          <p className="troca">Lembrou a senha? <button type="button" className="lnk" onClick={() => trocar("entrar")}>Entrar</button></p>
+        {modo !== "entrar" && (
+          <p className="troca">Já tem conta? <button type="button" className="lnk" onClick={() => trocar("entrar")}>Entrar</button></p>
         )}
       </form>
     </Moldura>

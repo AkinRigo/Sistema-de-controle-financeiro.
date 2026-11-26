@@ -31,7 +31,7 @@ def criar_app(
     enviador: EnviadorDeEmail | None = None,
 ) -> FastAPI:
     config = config or Config.do_ambiente()
-    app = FastAPI(title="Painel Financeiro", version="0.1.0")
+    app = FastAPI(title="No Corre das Notas", version="0.1.0")
 
     engine = criar_engine(config.database_url)
     app.state.engine = engine
@@ -46,7 +46,7 @@ def criar_app(
                 config.smtp_porta,
                 config.smtp_usuario,
                 config.smtp_senha,
-                f"Painel Financeiro <{config.smtp_usuario}>",
+                f"No Corre das Notas <{config.smtp_usuario}>",
             )
             if config.smtp_usuario and config.smtp_senha
             else EnviadorTerminal()
