@@ -61,7 +61,10 @@ def obter_usuario_atual(
     return usuario
 
 
-UsuarioDep = Annotated[UsuarioModelo, Depends(obter_usuario_atual)]
+# Nome em inglês, como no padrão da documentação do FastAPI: mesma função.
+get_current_user = obter_usuario_atual
+
+UsuarioDep = Annotated[UsuarioModelo, Depends(get_current_user)]
 
 
 def nao_encontrado(recurso: str) -> HTTPException:

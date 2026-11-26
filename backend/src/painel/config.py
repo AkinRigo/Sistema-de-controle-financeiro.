@@ -46,6 +46,8 @@ class Config:
     smtp_senha: str = ""
     smtp_servidor: str = "smtp.gmail.com"
     smtp_porta: int = 465
+    # Chave do POST /admin/users (header X-Admin-Key). Vazia = rota de admin desligada.
+    admin_api_key: str = ""
 
     @classmethod
     def do_ambiente(cls) -> "Config":
@@ -73,4 +75,5 @@ class Config:
             smtp_senha=os.environ.get("PAINEL_SMTP_SENHA", "").replace(" ", ""),
             smtp_servidor=os.environ.get("PAINEL_SMTP_SERVIDOR", "smtp.gmail.com"),
             smtp_porta=int(os.environ.get("PAINEL_SMTP_PORTA", "465")),
+            admin_api_key=os.environ.get("ADMIN_API_KEY", "").strip(),
         )

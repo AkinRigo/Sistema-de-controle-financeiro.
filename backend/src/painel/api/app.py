@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
 from painel.api.erros import mensagens
-from painel.api.rotas import auth, backup, cadastros, relatorios, rendas
+from painel.api.rotas import admin, auth, backup, cadastros, relatorios, rendas
 from painel.config import Config
 from painel.domain.erros import ErroDeValidacao
 from painel.infra.db import criar_engine, criar_fabrica_sessoes
@@ -90,6 +90,10 @@ def criar_app(
             content={"detail": "Conflito com dados existentes."},
         )
 
+    @app.get("/", tags=["infra"])
+    def inicio() -> dict[str, str]:
+        return {"app": "No Corre das Notas", "status": "ok", "docs": "/docs"}
+
     @app.get("/saude", tags=["infra"])
     def saude() -> dict[str, str]:
         return {"status": "ok"}
@@ -99,4 +103,5 @@ def criar_app(
     app.include_router(relatorios.router)
     app.include_router(backup.router)
     app.include_router(rendas.router)
+    app.include_router(admin.router)
     return app

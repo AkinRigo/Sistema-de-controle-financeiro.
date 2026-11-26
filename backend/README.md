@@ -22,6 +22,7 @@ Documentação interativa: http://localhost:8000/docs
 | `PAINEL_VALIDADE_TOKEN` | `604800` (7 dias, em segundos) |
 | `PAINEL_CORS_ORIGENS` | `http://localhost:5173` (separe por vírgula) |
 | `PAINEL_URL_FRONTEND` | `http://localhost:5173` (base do link no e-mail) |
+| `ADMIN_API_KEY` | vazia: `POST /admin/users` fica desligada |
 | `PAINEL_SMTP_USUARIO` / `PAINEL_SMTP_SENHA` | vazio: o link de troca de senha sai só no terminal |
 
 ### E-mail (Gmail)
@@ -58,3 +59,17 @@ Documentação interativa: http://localhost:8000/docs
 Saldos de banco são ajustados automaticamente: pagamento com `banco_id` debita;
 ganho `recebido` com `banco_id` credita; desfazer pagamento ou editar ganho desfaz o efeito.
 Excluir uma conta apaga o histórico dela, mas não mexe nos saldos.
+
+## Cadastrar amigos (admin)
+
+`POST /admin/users` cria uma conta já ativada. Exige o header `X-Admin-Key` com o valor da
+`ADMIN_API_KEY` (no Render: serviço → Environment). Exemplo no PowerShell:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri https://controle-financeiro-api-thgy.onrender.com/admin/users `
+  -Headers @{ "X-Admin-Key" = "<sua ADMIN_API_KEY>" } -ContentType "application/json" `
+  -Body '{"nome":"Bia","email":"bia@exemplo.com","senha":"senha-com-8+"}'
+```
+
+Também dá para usar a página `/docs` (botão "Try it out" em `POST /admin/users`).
+
