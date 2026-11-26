@@ -1,6 +1,7 @@
 """Fábrica da aplicação FastAPI."""
 
 import re
+import uuid
 from collections.abc import Callable
 from datetime import date
 
@@ -17,6 +18,7 @@ from painel.config import Config
 from painel.domain.erros import ErroDeValidacao
 from painel.infra.db import criar_engine, criar_fabrica_sessoes
 from painel.infra.email import EnviadorDeEmail, EnviadorSmtp, EnviadorTerminal
+from painel.infra.eventos import registrar
 from painel.infra.seguranca import EmissorDeTokens
 
 
@@ -55,6 +57,33 @@ def criar_app(
             else EnviadorTerminal()
         )
     app.state.enviador = enviador
+
+    # Registrado antes do CORS para a resposta de erro também levar os cabeçalhos de CORS.
+    @app.middleware("http")
+    async def _requisicao(request: Request, chamar_proximo):
+        request.state.rid = "req_" + uuid.uuid4().hex[:8]
+        try:
+            resposta = await chamar_proximo(request)
+        except Exception as erro:
+            registrar(
+                app.state.fabrica_sessoes,
+                nivel="erro",
+                tipo="sistema",
+                acao="erro_inesperado",
+                mensagem=f"Erro inesperado em {request.method} {request.url.path}",
+                rota=f"{request.method} {request.url.path}",
+                codigo=500,
+                requisicao=request.state.rid,
+                detalhe=f"{type(erro).__name__}: {erro}"[:2000],
+            )
+            resposta = JSONResponse(
+                status_code=500,
+                content={
+                    "detail": f"Algo deu errado do nosso lado. Código: {request.state.rid}.",
+                },
+            )
+        resposta.headers["X-Request-Id"] = request.state.rid
+        return resposta
 
     if config.origens_cors:
         exatas, padrao = _origens(config.origens_cors)

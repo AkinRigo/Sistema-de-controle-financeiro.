@@ -8,10 +8,13 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from painel.infra.eventos import registrar
 from painel.infra.modelos import UsuarioModelo
 from painel.infra.seguranca import EmissorDeTokens, TokenInvalido
 
 _bearer = HTTPBearer(auto_error=False)
+
+CONTA_DESATIVADA = "Sua conta está desativada. Fale com o administrador do No Corre."
 
 
 def obter_sessao(request: Request) -> Iterator[Session]:
@@ -58,6 +61,12 @@ def obter_usuario_atual(
     usuario = sessao.get(UsuarioModelo, usuario_id)
     if usuario is None:
         raise nao_autorizado
+    if not usuario.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=CONTA_DESATIVADA,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return usuario
 
 
@@ -69,3 +78,13 @@ UsuarioDep = Annotated[UsuarioModelo, Depends(get_current_user)]
 
 def nao_encontrado(recurso: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{recurso} não encontrado.")
+
+
+def registrar_evento(request: Request, **campos) -> None:
+    """Grava um log com a rota e o id da requisição atuais."""
+    registrar(
+        request.app.state.fabrica_sessoes,
+        rota=campos.pop("rota", f"{request.method} {request.url.path}"),
+        requisicao=getattr(request.state, "rid", None),
+        **campos,
+    )

@@ -82,6 +82,14 @@ class EmissorDeTokens:
     def validar_confirmacao(self, token: str) -> str:
         return self._ler(token, "confirmar")["sub"]
 
+    VALIDADE_CONVITE = 7 * 24 * 60 * 60
+
+    def emitir_convite(self, convite_id: str) -> str:
+        return self._emitir({"sub": convite_id, "p": "convite"}, self.VALIDADE_CONVITE)
+
+    def validar_convite(self, token: str) -> str:
+        return self._ler(token, "convite")["sub"]
+
 
 def link_ainda_valido(impressao: str, senha_hash: str) -> bool:
     return hmac.compare_digest(impressao, _impressao(senha_hash))

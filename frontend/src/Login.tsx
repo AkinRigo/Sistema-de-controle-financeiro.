@@ -3,7 +3,7 @@ import { ErroApi, api, token, type Usuario } from "./api";
 import { LogoCompleto } from "./componentes/Logo";
 import { Rodape } from "./componentes/Rodape";
 
-type Modo = "entrar" | "cadastrar" | "esqueci" | "redefinir" | "aguardando" | "confirmando";
+type Modo = "entrar" | "cadastrar" | "esqueci" | "redefinir" | "aguardando" | "confirmando" | "convite";
 
 /** Links que chegam por e-mail: ?redefinir=TOKEN ou ?confirmar=TOKEN */
 const parametro = (nome: string) => new URLSearchParams(window.location.search).get(nome);
@@ -16,6 +16,7 @@ const TITULOS: Record<Modo, [string, string]> = {
   redefinir: ["Nova senha", "Escolha sua senha nova."],
   aguardando: ["Confira seu e-mail", "Falta só ativar sua conta."],
   confirmando: ["Ativando…", "Ativando sua conta…"],
+  convite: ["Você foi convidado(a)!", "Crie sua senha para entrar no No Corre das Notas."],
 };
 
 const Titulo = ({ modo }: { modo: Modo }) => (
@@ -42,7 +43,10 @@ const MarcaMini = () => <LogoCompleto className="marca-mini" />;
 export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
   const [linkRedefinir] = useState(() => parametro("redefinir"));
   const [linkConfirmar] = useState(() => parametro("confirmar"));
-  const [modo, setModo] = useState<Modo>(linkConfirmar ? "confirmando" : linkRedefinir ? "redefinir" : "entrar");
+  const [linkConvite] = useState(() => parametro("convite"));
+  const [modo, setModo] = useState<Modo>(
+    linkConfirmar || linkConvite ? "confirmando" : linkRedefinir ? "redefinir" : "entrar",
+  );
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -57,6 +61,16 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
     token.gravar(r.token);
     aoEntrar(r.usuario);
   }
+
+  // Link do convite: mostra quem foi convidado e pede só a senha.
+  useEffect(() => {
+    if (!linkConvite || confirmou.current) return;
+    confirmou.current = true;
+    api.verConvite(linkConvite)
+      .then((c) => { setNome(c.nome); setEmail(c.email); setModo("convite"); })
+      .catch((e) => { limparLink(); setErro((e as Error).message); setModo("entrar"); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Link de ativação do e-mail: ativa a conta e volta para o login com e-mail e senha.
   useEffect(() => {
@@ -103,6 +117,8 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
         setModo("aguardando");
       } else if (modo === "redefinir") {
         entrarCom(await api.redefinirSenha(linkRedefinir!, senha));
+      } else if (modo === "convite") {
+        entrarCom(await api.aceitarConvite(linkConvite!, senha));
       } else {
         entrarCom(await api.entrar(email, senha));
       }
@@ -132,7 +148,7 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
     );
   }
 
-  const senhaNova = modo === "cadastrar" || modo === "redefinir";
+  const senhaNova = modo === "cadastrar" || modo === "redefinir" || modo === "convite";
 
   return (
     <Moldura>
@@ -142,12 +158,15 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
         {modo === "cadastrar" && (
           <label className="f">Nome<input value={nome} onChange={(e) => setNome(e.target.value)} required autoComplete="name" /></label>
         )}
-        {modo !== "redefinir" && (
+        {modo === "convite" && (
+          <p style={{ margin: 0 }}>Olá, <b>{nome}</b>! Sua conta será criada com o e-mail <b>{email}</b>.</p>
+        )}
+        {modo !== "redefinir" && modo !== "convite" && (
           <label className="f">E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
         )}
         {modo !== "esqueci" && (
           <label className="f">
-            {modo === "redefinir" ? "Senha nova" : "Senha"}{senhaNova ? " (mínimo 8 caracteres)" : ""}
+            {modo === "redefinir" ? "Senha nova" : modo === "convite" ? "Crie sua senha" : "Senha"}{senhaNova ? " (mínimo 8 caracteres)" : ""}
             <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required
               minLength={senhaNova ? 8 : undefined} autoComplete={senhaNova ? "new-password" : "current-password"} />
           </label>
@@ -156,7 +175,7 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
         {podeReenviar && <button type="button" className="btn" onClick={reenviar}>Reenviar e-mail de ativação</button>}
         {aviso && <p className="hint" role="status" style={{ color: "var(--green)", fontWeight: 600 }}>{aviso}</p>}
         <button className="btn pri" disabled={enviando}>
-          {{ entrar: "Entrar", cadastrar: "Cadastrar", esqueci: "Mandar link", redefinir: "Salvar senha e entrar" }[modo]}
+          {{ entrar: "Entrar", cadastrar: "Cadastrar", esqueci: "Mandar link", redefinir: "Salvar senha e entrar", convite: "Criar minha conta e entrar" }[modo]}
         </button>
         {modo === "entrar" && (
           <>

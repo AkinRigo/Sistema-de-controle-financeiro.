@@ -11,9 +11,11 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     false,
     func,
+    true,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -37,6 +39,9 @@ class UsuarioModelo(Base):
     contar_corridas: Mapped[bool] = mapped_column(Boolean, default=False)
     email_confirmado: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # Desativado pelo admin: não entra mais, mas os dados ficam guardados.
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    ultimo_acesso: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -129,3 +134,40 @@ class GanhoModelo(Base):
         index=True,
     )
     mes_renda: Mapped[str | None] = mapped_column(String(7), nullable=True)
+
+
+class ConviteModelo(Base):
+    """Convite enviado pelo admin. Vira usuário quando a pessoa cria a senha."""
+
+    __tablename__ = "convites"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    nome: Mapped[str] = mapped_column(String(120))
+    email: Mapped[str] = mapped_column(String(254), index=True)
+    # pendente | aceito | cancelado
+    status: Mapped[str] = mapped_column(String(12), default="pendente")
+    convidado_por: Mapped[str | None] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True
+    )
+    enviado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    aceito_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class EventoModelo(Base):
+    """Log do sistema: acessos, erros e e-mails, para a aba Logs do admin."""
+
+    __tablename__ = "eventos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    nivel: Mapped[str] = mapped_column(String(8))  # erro | aviso | info
+    tipo: Mapped[str] = mapped_column(String(10))  # acesso | sistema | email
+    acao: Mapped[str] = mapped_column(String(40), index=True)  # ex.: login_ok, login_falhou
+    mensagem: Mapped[str] = mapped_column(String(300))
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    rota: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    codigo: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    requisicao: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    detalhe: Mapped[str | None] = mapped_column(Text, nullable=True)

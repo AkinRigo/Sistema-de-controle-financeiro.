@@ -6,6 +6,7 @@ import { Categorias } from "./componentes/Categorias";
 import { Contas } from "./componentes/Contas";
 import { Corridas } from "./componentes/Corridas";
 import { Ganhos } from "./componentes/Ganhos";
+import { Admin } from "./componentes/Admin";
 import { LogoLinha } from "./componentes/Logo";
 import { Rodape } from "./componentes/Rodape";
 import { HOJE, MES_ATUAL, dinheiro, maiuscula, mesCompleto, nomeMes, num, somarMes } from "./util";
@@ -38,6 +39,7 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
   const [dados, setDados] = useState<Dados | null>(null);
   const [erroCarga, setErroCarga] = useState("");
   const [vista, setVista] = useState<Vista>("bills");
+  const [tela, setTela] = useState<"painel" | "admin">("painel");
   const [aberto, setAberto] = useState<string | null>(null);
   const [ultimoBanco, setUltimoBanco] = useState("");
   const [tema, setTema] = useState<Tema>(lerTema);
@@ -144,10 +146,17 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
       <header className="strip">
         <div className="marca"><h1 style={{ margin: 0, lineHeight: 0 }}><LogoLinha /></h1><div className="save">Conectado como {dados.usuario.nome || usuario.nome}</div></div>
         <div className="nav">
-          <button className="sbtn" onClick={() => setMes(somarMes(mes, -1))} aria-label="Mês anterior">‹</button>
-          <div className="mon">{maiuscula(mesCompleto(mes))}</div>
-          <button className="sbtn" onClick={() => setMes(somarMes(mes, 1))} aria-label="Próximo mês">›</button>
-          {mes !== MES_ATUAL && <button className="sbtn" onClick={() => setMes(MES_ATUAL)}>Hoje</button>}
+          {tela === "painel" && (<>
+            <button className="sbtn" onClick={() => setMes(somarMes(mes, -1))} aria-label="Mês anterior">‹</button>
+            <div className="mon">{maiuscula(mesCompleto(mes))}</div>
+            <button className="sbtn" onClick={() => setMes(somarMes(mes, 1))} aria-label="Próximo mês">›</button>
+            {mes !== MES_ATUAL && <button className="sbtn" onClick={() => setMes(MES_ATUAL)}>Hoje</button>}
+          </>)}
+          {dados.usuario.admin && (
+            <button className={`sbtn ${tela === "admin" ? "on" : ""}`} onClick={() => setTela(tela === "admin" ? "painel" : "admin")}>
+              {tela === "admin" ? "Meu painel" : "Admin"}
+            </button>
+          )}
           <details className="menu" ref={menuRef}>
             <summary className="sbtn" style={{ display: "flex", alignItems: "center" }}>Dados ▾</summary>
             <div className="pop">
@@ -174,6 +183,9 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
         </div>
       </header>
 
+      {tela === "admin" ? (
+        <main className="wrap"><Admin toast={toast} /></main>
+      ) : (
       <main className="wrap">
         {vazio && (
           <section className="welcome">
@@ -241,6 +253,7 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
         {vista === "debts" && <Categorias />}
         {vista === "sim" && <Corridas key={mes} />}
       </main>
+      )}
       <Rodape />
       <div className={`toast ${toastVisivel ? "show" : ""}`} role="status">{toastTexto}</div>
     </Contexto.Provider>

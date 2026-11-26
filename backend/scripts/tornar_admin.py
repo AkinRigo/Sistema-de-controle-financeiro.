@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from sqlalchemy import select
 
 ADMIN_PADRAO = "akinrigo7@gmail.com"
+SENHA_ADMIN_PADRAO = "admin123"
 
 
 def main(argv: list[str]) -> int:

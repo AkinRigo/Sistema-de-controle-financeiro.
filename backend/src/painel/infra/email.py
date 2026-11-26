@@ -3,6 +3,7 @@
 import logging
 import smtplib
 import ssl
+from collections.abc import Callable
 from email.message import EmailMessage
 from typing import Protocol
 
@@ -41,9 +42,19 @@ class EnviadorTerminal:
         )
 
 
-def enviar_com_seguranca(enviador: EnviadorDeEmail, para: str, assunto: str, texto: str, html: str):
-    """Roda em segundo plano: uma falha de envio não pode derrubar a requisição."""
+def enviar_com_seguranca(
+    enviador: EnviadorDeEmail,
+    para: str,
+    assunto: str,
+    texto: str,
+    html: str,
+    ao_falhar: Callable[[Exception], None] | None = None,
+) -> None:
+    """Roda em segundo plano: uma falha de envio não pode derrubar a requisição.
+    `ao_falhar` recebe o erro (usado para gravar no log do admin)."""
     try:
         enviador.enviar(para, assunto, texto, html)
-    except Exception:
+    except Exception as erro:
         log.exception("Falha ao enviar e-mail para %s", para)
+        if ao_falhar is not None:
+            ao_falhar(erro)

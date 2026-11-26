@@ -5,7 +5,7 @@ const CHAVE_TOKEN = "painel_token";
 
 export type Tipo = "fixa" | "unica" | "parcelada";
 
-export interface Usuario { id: string; nome: string; email: string; desde: string }
+export interface Usuario { id: string; nome: string; email: string; desde: string; admin?: boolean }
 export interface Banco { id: string; nome: string; saldo: string }
 export interface Conta {
   id: string; nome: string; valor: string; tipo: Tipo; mes_inicio: string;
@@ -58,6 +58,21 @@ export interface ItemCategoria {
 export interface Categoria {
   chave: string; nome: string; falta_pagar: string; ja_pago: string; fixas_por_mes: string; ainda_devo: string;
   itens: ItemCategoria[];
+}
+// ---------- admin ----------
+export type StatusUsuario = "master" | "ativo" | "nao_ativou" | "convidado" | "desativado";
+export interface AdminUsuario { id: string; tipo: "usuario" | "convite"; nome: string; email: string; status: StatusUsuario; detalhe: string }
+export interface AdminUsuarios { usuarios: AdminUsuario[]; contagem: Record<string, number> }
+export interface Evento {
+  id: number; quando: string; nivel: "erro" | "aviso" | "info"; tipo: "acesso" | "sistema" | "email";
+  acao: string; mensagem: string; email: string | null; rota: string | null; codigo: number | null;
+  requisicao: string | null; detalhe: string | null;
+}
+export interface Logs { logs: Evento[]; contagem: Record<string, number> }
+export interface Indicadores {
+  usuarios_ativos: number; logins_7d: number; logins_7d_variacao: number | null; erros_24h: number; nao_ativaram: number;
+  dias: string[]; logins: number[]; cadastros: number[]; erros: number[];
+  ultimos_erros: Evento[]; pendencias: { usuario_id: string; nome: string; email: string; motivo: string }[];
 }
 export interface ResultadoImportacao { bancos: number; contas: number; ganhos: number; pagamentos: number; ignorados: number }
 
@@ -113,6 +128,9 @@ export const api = {
   cadastrar: (nome: string, email: string, senha: string) =>
     pedir<{ detail: string }>("POST", "/auth/cadastro", { nome, email, senha }),
   confirmarEmail: (tokenLink: string) => pedir<TokenSaida>("POST", "/auth/confirmar-email", { token: tokenLink }),
+  verConvite: (tokenLink: string) => pedir<{ nome: string; email: string }>("GET", `/auth/convite/${encodeURIComponent(tokenLink)}`),
+  aceitarConvite: (tokenLink: string, senha: string) =>
+    pedir<TokenSaida>("POST", "/auth/aceitar-convite", { token: tokenLink, senha }),
   reenviarConfirmacao: (email: string) =>
     pedir<{ detail: string }>("POST", "/auth/reenviar-confirmacao", { email }),
   entrar: (email: string, senha: string) => pedir<TokenSaida>("POST", "/auth/login", { email, senha }),
@@ -156,5 +174,18 @@ export const api = {
   categorias: (mes: string) => pedir<Categoria[]>("GET", `/categorias/${mes}`),
 
   exportar: () => pedir<unknown>("GET", "/backup"),
+  admin: {
+    indicadores: (dias: number) => pedir<Indicadores>("GET", `/admin/indicadores?dias=${dias}`),
+    usuarios: (status: string, busca: string) =>
+      pedir<AdminUsuarios>("GET", `/admin/usuarios?status=${status}&busca=${encodeURIComponent(busca)}`),
+    acaoUsuario: (id: string, acao: "ativar" | "desativar" | "reativar" | "nova-senha" | "reenviar-ativacao") =>
+      pedir<{ detail: string }>("POST", `/admin/usuarios/${id}/${acao}`),
+    convidar: (nome: string, email: string) => pedir<{ detail: string }>("POST", "/admin/convites", { nome, email }),
+    reenviarConvite: (id: string) => pedir<{ detail: string }>("POST", `/admin/convites/${id}/reenviar`),
+    cancelarConvite: (id: string) => pedir<{ detail: string }>("DELETE", `/admin/convites/${id}`),
+    logs: (nivel: string, tipo: string, busca: string) =>
+      pedir<Logs>("GET", `/admin/logs?nivel=${nivel}&tipo=${tipo}&busca=${encodeURIComponent(busca)}`),
+  },
+
   importar: (dados: unknown) => pedir<ResultadoImportacao>("POST", "/backup", dados),
 };

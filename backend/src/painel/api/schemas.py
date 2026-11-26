@@ -320,3 +320,87 @@ class CategoriaSaida(BaseModel):
 
 class DividaSaida(BaseModel):
     total: DinheiroSaida
+
+
+# ---------- convites ----------
+
+
+class ConviteEntrada(Entrada):
+    nome: str = Field(min_length=1, max_length=120)
+    email: str = Field(max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, valor: str) -> str:
+        valor = valor.strip().lower()
+        if not _PADRAO_EMAIL.fullmatch(valor):
+            raise ValueError("E-mail inválido.")
+        return valor
+
+
+class ConviteSaida(BaseModel):
+    nome: str
+    email: str
+
+
+class AceitarConviteEntrada(Entrada):
+    token: str
+    senha: str = Field(min_length=8, max_length=128)
+
+
+# ---------- admin ----------
+
+
+class AdminUsuarioSaida(BaseModel):
+    id: str
+    tipo: str  # "usuario" | "convite"
+    nome: str
+    email: str
+    # master | ativo | nao_ativou | convidado | desativado
+    status: str
+    detalhe: str
+
+
+class AdminUsuariosSaida(BaseModel):
+    usuarios: list[AdminUsuarioSaida]
+    contagem: dict[str, int]
+
+
+class EventoSaida(BaseModel):
+    id: int
+    quando: str  # já formatado em horário de Brasília: "hoje 10:42", "24/11 09:02"
+    nivel: str
+    tipo: str
+    acao: str
+    mensagem: str
+    email: str | None
+    rota: str | None
+    codigo: int | None
+    requisicao: str | None
+    detalhe: str | None
+
+
+class LogsSaida(BaseModel):
+    logs: list[EventoSaida]
+    contagem: dict[str, int]
+
+
+class PendenciaSaida(BaseModel):
+    usuario_id: str
+    nome: str
+    email: str
+    motivo: str
+
+
+class IndicadoresSaida(BaseModel):
+    usuarios_ativos: int
+    logins_7d: int
+    logins_7d_variacao: int | None  # % contra os 7 dias anteriores; None sem base
+    erros_24h: int
+    nao_ativaram: int
+    dias: list[str]
+    logins: list[int]
+    cadastros: list[int]
+    erros: list[int]
+    ultimos_erros: list[EventoSaida]
+    pendencias: list[PendenciaSaida]
