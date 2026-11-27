@@ -64,11 +64,13 @@ export interface Movimento { nome: string; valor: string; previsto: boolean }
 export interface DiaDeSaldo { dia: number; saldo: string; previsao: boolean; movimentos: Movimento[] }
 export interface SaldoDiario { mes: string; hoje: number | null; dias: DiaDeSaldo[]; menor: DiaDeSaldo | null }
 // ---------- voz ----------
-export interface ItemVoz { id: string; nome: string; valor: string; conta_id: string | null; mes_conta: string | null }
+export interface ItemVoz { id: string; nome: string; valor: string; conta_id: string | null; mes_conta: string | null; continua: boolean }
 export interface BancoVoz { id: string; nome: string; saldo: string }
 export interface PropostaVoz {
   acao: "pagar_conta" | "desfazer_pagamento" | "receber_ganho" | "novo_ganho" | "nova_conta" | "novo_banco"
-    | "somar_banco" | "ajustar_saldo" | "transferir" | "consultar_sobra" | "consultar_falta" | "consultar_banco" | "nao_entendi";
+    | "somar_banco" | "ajustar_saldo" | "transferir"
+    | "editar_conta" | "editar_ganho" | "editar_banco" | "apagar_conta" | "apagar_ganho" | "apagar_banco"
+    | "consultar_sobra" | "consultar_falta" | "consultar_banco" | "nao_entendi";
   mensagem: string;
   item: ItemVoz | null;
   opcoes: ItemVoz[];
@@ -82,6 +84,7 @@ export interface PropostaVoz {
   parcelas: number | null;
   dia: number;
   mes_inicio: string | null;
+  parar_em: string | null;
 }
 // ---------- admin ----------
 export type StatusUsuario = "master" | "ativo" | "nao_ativou" | "convidado" | "desativado";

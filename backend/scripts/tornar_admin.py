@@ -17,7 +17,6 @@ from sqlalchemy import select
 ADMIN_PADRAO = "akinrigo7@gmail.com"
 
 
-
 def main(argv: list[str]) -> int:
     load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     from painel.config import url_do_banco

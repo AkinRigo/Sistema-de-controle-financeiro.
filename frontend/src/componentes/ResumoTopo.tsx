@@ -81,7 +81,7 @@ export function ResumoTopo({ irPara }: { irPara: IrPara }) {
             const parcela = x.n && x.conta.total_parcelas ? `parcela ${x.n} de ${x.conta.total_parcelas} · ` : "";
             return (
               <Item key={chave} nome={x.conta.nome} valor={dinheiro(x.conta.valor)} alerta={x.atrasada}
-                detalhe={x.atrasada ? "atrasada" : `${parcela}dia ${x.conta.dia_vencimento}`}
+                detalhe={x.atrasada ? "atrasada" : `${parcela}${x.conta.dia_vencimento ? `dia ${x.conta.dia_vencimento}` : "sem dia"}`}
                 editar={() => irPara("bills", "editar:" + chave)} excluir={() => irPara("bills", "excluir:" + chave)} />
             );
           })}

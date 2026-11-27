@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, type ItemVoz, type PropostaVoz } from "../api";
 import { bancoPadrao, useCtx, type Ctx } from "../contexto";
-import { dataCurta, dinheiro, mesCompleto } from "../util";
+import { dataCurta, dinheiro, mesCompleto, nomeMes } from "../util";
 import { OpcoesBanco } from "./comuns";
 
 // ---------------- reconhecimento de fala (Web Speech API) ----------------
@@ -28,11 +28,15 @@ const ERROS: Record<string, string> = {
 
 // ---------------- cada ação: o que mostrar e o que fazer ao confirmar ----------------
 type Linha = [rotulo: string, valor: ReactNode];
-interface Extra { banco: string; nome: string }
+interface Extra { banco: string; nome: string; marcados: string[] }
+type Botao = [rotulo: string, executar: (p: PropostaVoz, c: Ctx) => Promise<boolean>];
 interface Acao {
   titulo: string;
   usaBanco?: string; // rótulo do seletor de banco (pagar/receber)
   usaNome?: string; // rótulo do campo de nome editável
+  perigo?: boolean; // apagar: botão vermelho "Apagar"
+  varios?: boolean; // com opções, marca várias (apagar ganhos) em vez de escolher uma
+  botoes?: (p: PropostaVoz) => Botao[] | null; // em vez de "Confirmar" (apagar conta de todo mês)
   linhas: (p: PropostaVoz) => Linha[];
   executar: (p: PropostaVoz, c: Ctx, x: Extra) => Promise<boolean>;
 }
@@ -96,7 +100,69 @@ const ACOES: Partial<Record<PropostaVoz["acao"], Acao>> = {
     executar: (p, c) => c.executar(() => api.transferir(p.banco!.id, p.banco_destino!.id, p.valor!),
       `${dinheiro(p.valor)} passou do ${p.banco!.nome} pro ${p.banco_destino!.nome}.`),
   },
+  // ---- editar: só muda o que o backend mandou; o resto fica como está ----
+  editar_conta: {
+    titulo: "Editar conta",
+    linhas: (p) => mudancas([["Conta", p.item?.nome], ["Valor fica", p.valor && dinheiro(p.valor)],
+      ["Vence", p.dia ? `dia ${p.dia}` : null], ["Nome novo", p.nome]]),
+    executar: (p, c) => {
+      const b = c.dados.contas.find((x) => x.id === p.item!.id);
+      if (!b) { c.toast("Não achei essa conta."); return Promise.resolve(false); }
+      return c.executar(() => api.editarConta(b.id, {
+        nome: p.nome || b.nome, valor: p.valor ?? b.valor, tipo: b.tipo, mes_inicio: b.mes_inicio, categoria: b.categoria,
+        credor: b.credor, dia_vencimento: p.dia || b.dia_vencimento, mes_fim: b.mes_fim, parcela_inicial: b.parcela_inicial,
+        total_parcelas: b.total_parcelas, juros_altos: b.juros_altos, incerto: b.incerto,
+      }), `${p.nome || b.nome} atualizada.`);
+    },
+  },
+  editar_ganho: {
+    titulo: "Editar ganho",
+    linhas: (p) => mudancas([["Ganho", p.item?.nome], ["Valor fica", p.valor && dinheiro(p.valor)],
+      ["Entra em", p.data && dataCurta(p.data)], ["Nome novo", p.nome]]),
+    executar: (p, c) => {
+      const g = c.dados.ganhos.find((x) => x.id === p.item!.id);
+      if (!g) { c.toast("Não achei esse ganho."); return Promise.resolve(false); }
+      return c.executar(() => api.editarGanho(g.id, { nome: p.nome || g.nome, valor: p.valor ?? g.valor,
+        data: p.data ?? g.data, recebido: g.recebido, banco_id: g.banco_id }), `${p.nome || g.nome} atualizado.`);
+    },
+  },
+  editar_banco: {
+    titulo: "Editar banco",
+    linhas: (p) => [["Banco", p.banco?.nome], ["Nome novo", p.nome], ["Saldo", `${dinheiro(p.banco?.saldo)} (não muda)`]],
+    executar: (p, c) => c.executar(() => api.editarBanco(p.banco!.id, p.nome, p.banco!.saldo), `${p.banco!.nome} agora é ${p.nome}.`),
+  },
+  // ---- apagar: sempre pede confirmação, botão vermelho ----
+  apagar_conta: {
+    titulo: "Apagar conta", perigo: true,
+    linhas: (p) => [["Conta", p.item?.nome], ["Valor", dinheiro(p.item?.valor)],
+      ["Efeito", p.item?.continua ? "é de todo mês: escolha abaixo" : "some do app, com o histórico. Não dá pra desfazer."]],
+    botoes: (p) => p.item?.continua && p.parar_em ? [
+      [`Parar a partir de ${nomeMes(p.parar_em)}`, (p, c) => c.executar(() => api.pararConta(p.item!.id, p.parar_em!),
+        `${p.item!.nome} não aparece mais a partir de ${mesCompleto(p.parar_em!)}.`)],
+      ["Apagar de vez", (p, c) => c.executar(() => api.excluirConta(p.item!.id), `${p.item!.nome} apagada.`)],
+    ] : null,
+    executar: (p, c) => c.executar(() => api.excluirConta(p.item!.id), `${p.item!.nome} apagada.`),
+  },
+  apagar_ganho: {
+    titulo: "Apagar ganho", perigo: true, varios: true,
+    linhas: (p) => p.item ? [["Ganho", p.item.nome], ["Valor", dinheiro(p.item.valor)], ["Efeito", "sai de “Vai entrar”. Não dá pra desfazer."]] : [],
+    executar: (p, c, x) => {
+      const ids = p.item ? [p.item.id] : x.marcados;
+      return c.executar(async () => { for (const id of ids) await api.excluirGanho(id); },
+        ids.length > 1 ? `${ids.length} ganhos apagados.` : "Ganho apagado.");
+    },
+  },
+  apagar_banco: {
+    titulo: "Apagar banco", perigo: true,
+    linhas: (p) => [["Banco", p.banco?.nome], ["Saldo", dinheiro(p.banco?.saldo)], ["Efeito", "sai de “Tenho nos bancos”. Não dá pra desfazer."]],
+    executar: (p, c) => c.executar(() => api.excluirBanco(p.banco!.id), `${p.banco!.nome} apagado.`),
+  },
 };
+
+/** Só as linhas que têm valor (no editar, o que não muda não aparece). */
+function mudancas(linhas: [string, ReactNode][]): Linha[] {
+  return linhas.filter(([, v]) => v !== null && v !== undefined && v !== "" && v !== false) as Linha[];
+}
 
 // Uma fase de cada vez: a tela mostra só o que é da fase atual.
 type Fase =
@@ -110,13 +176,13 @@ export function Voz() {
   const c = useCtx();
   const [fase, setFase] = useState<Fase>({ tipo: "fechado" });
   const [texto, setTexto] = useState("");
-  const [extra, setExtra] = useState<Extra>({ banco: "", nome: "" });
+  const [extra, setExtra] = useState<Extra>({ banco: "", nome: "", marcados: [] });
   const [salvando, setSalvando] = useState(false);
   const rec = useRef<Reconhecedor | null>(null);
   const ultimo = useRef("");
 
   function mostrar(p: PropostaVoz) {
-    setExtra({ banco: p.banco?.id ?? bancoPadrao(c), nome: p.nome });
+    setExtra({ banco: p.banco?.id ?? bancoPadrao(c), nome: p.nome, marcados: p.opcoes.map((o) => o.id) });
     setFase({ tipo: "proposta", p });
   }
 
@@ -149,21 +215,29 @@ export function Voz() {
   function fechar() { rec.current?.stop(); rec.current = null; setFase({ tipo: "fechado" }); }
   useEffect(() => () => rec.current?.stop(), []);
 
-  // escolheu uma das opções ("qual cartão?"): vira o item, com o valor dele
-  function escolher(p: PropostaVoz, o: ItemVoz) { mostrar({ ...p, item: o, opcoes: [], valor: o.valor }); }
+  // escolheu uma das opções ("qual cartão?"): vira o item. Pagar/receber usam o valor dele;
+  // no editar, o valor é o NOVO que a pessoa falou.
+  function escolher(p: PropostaVoz, o: ItemVoz) {
+    mostrar({ ...p, item: o, opcoes: [], valor: p.acao.startsWith("editar") ? p.valor : o.valor });
+  }
 
-  async function confirmar(p: PropostaVoz, acao: Acao) {
-    const x = { ...extra, nome: extra.nome.trim() || p.nome };
+  async function rodar(fn: () => Promise<boolean>) {
     setSalvando(true);
-    const ok = await acao.executar(p, c, x);
+    const ok = await fn();
     setSalvando(false);
     if (ok) fechar();
   }
+  const confirmar = (p: PropostaVoz, acao: Acao) => rodar(() => acao.executar(p, c, { ...extra, nome: extra.nome.trim() || p.nome }));
+  const alternar = (id: string) => setExtra({ ...extra,
+    marcados: extra.marcados.includes(id) ? extra.marcados.filter((m) => m !== id) : [...extra.marcados, id] });
 
   const p = fase.tipo === "proposta" ? fase.p : null;
-  const acao = p && p.acao !== "nao_entendi" && !p.opcoes.length ? ACOES[p.acao] : undefined;
+  const tabela = p && p.acao !== "nao_entendi" ? ACOES[p.acao] : undefined;
+  const marcar = !!(p && tabela?.varios && p.opcoes.length); // apagar vários: caixinhas
+  const acao = p && tabela && (!p.opcoes.length || marcar) ? tabela : undefined;
+  const botoes = p && acao?.botoes?.(p);
   const titulo = { fechado: "", ouvindo: "Tô ouvindo…", entendendo: "Entendendo…", erro: "Opa",
-    proposta: p?.opcoes.length ? "Qual destes?" : acao ? "Confere pra mim?" : "Olha só" }[fase.tipo];
+    proposta: marcar ? p!.mensagem || "Apagar estes?" : p?.opcoes.length ? "Qual destes?" : acao ? "Confere pra mim?" : "Olha só" }[fase.tipo];
   const podeDigitar = fase.tipo === "erro" || (!!p && !acao && !p.opcoes.length);
 
   return (
@@ -179,7 +253,7 @@ export function Voz() {
             {(fase.tipo === "ouvindo" || fase.tipo === "entendendo") && <div className="voz-ondas" aria-hidden="true"><i /><i /><i /><i /><i /></div>}
             <div className="voz-fala"><small>Você disse</small>{texto || (fase.tipo === "ouvindo" ? "fale agora…" : "—")}</div>
 
-            {p && p.opcoes.length > 0 && (
+            {p && p.opcoes.length > 0 && !marcar && (
               <div className="voz-opcoes">
                 {p.opcoes.map((o) => (
                   <button key={o.id} type="button" onClick={() => escolher(p, o)}><span>{o.nome}</span><b>{dinheiro(o.valor)}</b></button>
@@ -190,6 +264,14 @@ export function Voz() {
             {p && acao && (
               <div className="voz-cartao">
                 <span className="voz-acao">{acao.titulo}</span>
+                {marcar && (
+                  <div className="voz-marcar">
+                    {p.opcoes.map((o) => (
+                      <label key={o.id}><input type="checkbox" checked={extra.marcados.includes(o.id)} onChange={() => alternar(o.id)} />
+                        <span>{o.nome}</span><b>{dinheiro(o.valor)}</b></label>
+                    ))}
+                  </div>
+                )}
                 <dl>
                   {acao.usaNome && (
                     <div><dt>{acao.usaNome}</dt><dd><input value={extra.nome} maxLength={120} aria-label={acao.usaNome}
@@ -217,8 +299,14 @@ export function Voz() {
 
             <div className="voz-botoes">
               <button className="btn" onClick={fechar}>{acao ? "Cancelar" : "Fechar"}</button>
-              {p && acao
-                ? <button className="btn pri" disabled={salvando} onClick={() => confirmar(p, acao)}>{salvando ? "Salvando…" : "Confirmar"}</button>
+              {p && acao && botoes
+                ? botoes.map(([rotulo, fn], i) => (
+                  <button key={rotulo} className={`btn ${i === botoes.length - 1 ? "perigo" : "pri"}`} disabled={salvando} onClick={() => rodar(() => fn(p, c))}>{rotulo}</button>
+                ))
+                : p && acao
+                ? <button className={`btn ${acao.perigo ? "perigo" : "pri"}`} disabled={salvando || (marcar && !extra.marcados.length)} onClick={() => confirmar(p, acao)}>
+                    {salvando ? "Salvando…" : acao.perigo ? (marcar ? `Apagar ${extra.marcados.length}` : "Apagar") : "Confirmar"}
+                  </button>
                 : <button className="btn pri" onClick={ouvir} disabled={fase.tipo === "ouvindo" || fase.tipo === "entendendo"}>Falar de novo</button>}
             </div>
           </div>

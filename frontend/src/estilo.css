@@ -247,7 +247,7 @@ details.add[open] summary{margin-bottom:14px;background:var(--panel)}
 .menos .bloco-tot{color:var(--red)}
 .bloco-novo{flex:none;width:38px;height:38px;border-radius:10px;border:3px solid var(--edge);background:var(--roxo);color:#fff;font:700 22px/1 var(--num);cursor:pointer;box-shadow:2px 2px 0 var(--edge)}
 .bloco-novo:active{transform:translate(2px,2px);box-shadow:none}
-.bloco-lista{list-style:none;margin:0;padding:4px 16px 10px}
+.bloco-lista{list-style:none;margin:0;padding:4px 16px 10px;max-height:340px;overflow-y:auto;scrollbar-width:thin}
 .bloco-lista li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px;align-items:center;padding:9px 0;border-top:1px dashed var(--dash)}
 .bloco-lista li:first-child{border-top:0}
 .bloco-lista .nm{font-size:15px}
@@ -346,3 +346,10 @@ button.gr-barra{cursor:pointer}
 .voz-opcoes button{display:flex;justify-content:space-between;gap:10px;text-align:left;border:3px solid var(--edge);border-radius:12px;background:var(--card);padding:12px 14px;cursor:pointer;font-weight:600}
 .voz-opcoes button:hover{background:var(--panel)}
 .voz-opcoes b{font-family:var(--num)}
+
+/* voz: apagar (botão vermelho) e marcar vários */
+.voz-botoes .btn.perigo{background:var(--red);color:#fff}
+.voz-marcar{display:grid;gap:8px}
+.voz-marcar label{display:flex;align-items:center;gap:10px;border:2px solid var(--edge);border-radius:12px;padding:10px 12px;cursor:pointer}
+.voz-marcar input{width:20px;height:20px;accent-color:var(--roxo)}
+.voz-marcar span{flex:1}

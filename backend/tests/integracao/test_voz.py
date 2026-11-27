@@ -197,3 +197,23 @@ def test_rota_de_transferencia(cliente, auth):
     assert cliente.post("/bancos/transferir", json=alheio, headers=auth).status_code == 404
     saldos = sorted(b["saldo"] for b in cliente.get("/bancos", headers=auth).json())
     assert saldos == ["700.00", "800.00"]  # a falha não mexeu em nada
+
+
+def test_editar_e_apagar_pela_voz(cliente, auth, ia):
+    conta = {"valor": "260", "mes_inicio": "2026-10", "dia_vencimento": 20}
+    cel = _criar(cliente, auth, "/contas", {"nome": "Celular", "tipo": "fixa", **conta})
+    gas = _criar(cliente, auth, "/contas", {"nome": "Gás", "tipo": "unica", **conta})
+
+    # a IA recebe as contas cadastradas (inclusive as que não estão em aberto)
+    ia.resposta = {"acao": "apagar_conta", "item_id": cel["id"]}
+    p = _falar(cliente, auth, "apaga a conta do celular").json()
+    assert cel["id"] in ia.pedidos[-1] and gas["id"] in ia.pedidos[-1]
+    assert p["acao"] == "apagar_conta" and p["item"]["continua"] is True
+    assert p["parar_em"] == "2026-12" and p["item"]["conta_id"] is None
+
+    ia.resposta = {"acao": "apagar_conta", "item_id": gas["id"]}
+    assert _falar(cliente, auth, "apaga o gás").json()["item"]["continua"] is False
+
+    ia.resposta = {"acao": "editar_conta", "item_id": cel["id"], "dia": 5}
+    p = _falar(cliente, auth, "o celular vence dia 5").json()
+    assert p["acao"] == "editar_conta" and p["dia"] == 5 and p["valor"] is None

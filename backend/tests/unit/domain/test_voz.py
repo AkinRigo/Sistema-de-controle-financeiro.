@@ -16,11 +16,15 @@ FREELA = Opcao("g-freela", "Freela do site", dinheiro("300"))
 PAGA_NET = Opcao("p-net", "Internet", dinheiro("120"))
 NUBANK = Opcao("b-nu", "Nubank", dinheiro("1900"))
 CAIXA = Opcao("b-caixa", "Caixa", dinheiro("480"))
+FGTS = Opcao("g-fgts", "FGTS", dinheiro("1800"))
+CELULAR = Opcao("k-cel", "Celular", dinheiro("260"))
+CAD_ALUGUEL = Opcao("k-aluguel", "Aluguel", dinheiro("1300"))
 CTX = ContextoDeVoz(
     contas=(LUZ, ALUGUEL, CARTAO_NU, CARTAO_CX),
-    ganhos=(FREELA,),
+    ganhos=(FREELA, FGTS),
     bancos=(NUBANK, CAIXA),
     pagas=(PAGA_NET,),
+    cadastro=(CELULAR, CAD_ALUGUEL),
 )
 SO_NUBANK = ContextoDeVoz(contas=(LUZ,), ganhos=(FREELA,), bancos=(NUBANK,))
 
@@ -225,6 +229,83 @@ def test_transferir_incompleto(campos, trecho):
     assert p.acao == "nao_entendi" and trecho in p.mensagem
 
 
+# ---------- editar ----------
+
+
+def test_editar_conta_so_o_que_foi_pedido():
+    p = _v("editar_conta", item_id="k-aluguel", valor="1400")
+    assert p.acao == "editar_conta" and p.item == CAD_ALUGUEL and p.valor == dinheiro("1400")
+    assert p.dia == 0 and p.nome == ""
+    p = _v("editar_conta", item_id="k-cel", dia=5, nome="celular")  # mesmo nome: não renomeia
+    assert p.dia == 5 and p.nome == "" and p.valor is None
+
+
+def test_editar_ganho_data():
+    p = _v("editar_ganho", item_id="g-fgts", data="2026-11-30")
+    assert p.acao == "editar_ganho" and p.item == FGTS and p.data == date(2026, 11, 30)
+
+
+@pytest.mark.parametrize(
+    ("acao", "campos", "trecho"),
+    [
+        ("editar_conta", {"item_id": "k-cel"}, "O que você quer mudar em Celular"),
+        ("editar_conta", {"item_id": "k-cel", "dia": 99}, "o dia"),
+        ("editar_ganho", {"item_id": "g-fgts", "data": "2040-01-01"}, "a data"),
+        ("editar_conta", {"item_id": "k-cel", "valor": "abc"}, "valor novo"),
+        ("editar_conta", {"item_id": "c-luz", "valor": "10"}, "Não entendi"),  # só cadastradas
+        ("editar_ganho", {"opcoes_ids": ["g-fgts", "g-freela"]}, "O que você quer mudar em isso"),
+    ],
+)
+def test_editar_sem_mudanca_ou_invalido(acao, campos, trecho):
+    p = _v(acao, **campos)
+    assert p.acao == "nao_entendi" and trecho in p.mensagem
+
+
+def test_editar_com_opcoes_guarda_a_mudanca():
+    p = _v("editar_ganho", opcoes_ids=["g-fgts", "g-freela"], valor="100")
+    assert p.opcoes == (FGTS, FREELA) and p.valor == dinheiro("100")
+
+
+def test_editar_banco_renomeia():
+    p = _v("editar_banco", banco_id="b-nu", nome="nu")
+    assert p.acao == "editar_banco" and p.banco == NUBANK and p.nome == "Nu"
+
+
+@pytest.mark.parametrize(
+    ("campos", "trecho"),
+    [
+        ({"nome": "Nu"}, "Qual banco"),
+        ({"banco_id": "b-nu"}, "nome novo"),
+        ({"banco_id": "b-nu", "nome": "NUBANK"}, "nome novo"),
+        ({"banco_id": "b-nu", "nome": "caixa"}, "já tem"),
+    ],
+)
+def test_editar_banco_recusado(campos, trecho):
+    p = _v("editar_banco", **campos)
+    assert p.acao == "nao_entendi" and trecho in p.mensagem
+
+
+# ---------- apagar ----------
+
+
+def test_apagar_conta_traz_o_mes_de_parar():
+    p = _v("apagar_conta", item_id="k-cel")
+    assert p.acao == "apagar_conta" and p.item == CELULAR and p.parar_em == Mes("2026-12")
+    assert _v("apagar_conta", item_id="c-luz").acao == "nao_entendi"
+
+
+def test_apagar_ganhos_varios_e_um():
+    p = _v("apagar_ganho", opcoes_ids=["g-freela", "g-fgts"])
+    assert p.opcoes == (FREELA, FGTS) and p.mensagem == "Apagar estes ganhos?"
+    assert _v("apagar_ganho", item_id="g-fgts").item == FGTS
+
+
+def test_apagar_banco_so_o_citado():
+    assert _v("apagar_banco", banco_id="b-caixa").banco == CAIXA
+    p = _v("apagar_banco", SO_NUBANK)  # banco único não é apagado sem ser citado
+    assert p.acao == "nao_entendi" and "Qual banco" in p.mensagem
+
+
 # ---------- consultas ----------
 
 
@@ -249,4 +330,10 @@ def test_pedido_traz_a_frase_hoje_e_os_ids():
 
 def test_pedido_sem_nada_cadastrado():
     pedido = montar_pedido("oi", ContextoDeVoz((), (), ()), HOJE)
-    assert pedido.count("(nenhum)") == 4
+    assert pedido.count("(nenhum)") == 5
+
+
+def test_banco_no_campo_item_id_tambem_vale():
+    assert _v("editar_banco", item_id="b-nu", nome="Nu").banco == NUBANK
+    assert _v("apagar_banco", item_id="b-caixa").banco == CAIXA
+    assert _v("apagar_banco", item_id="c-luz").acao == "nao_entendi"  # id de conta não é banco

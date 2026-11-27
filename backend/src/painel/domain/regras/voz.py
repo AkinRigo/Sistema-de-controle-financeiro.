@@ -24,6 +24,12 @@ ACOES = (
     "somar_banco",
     "ajustar_saldo",
     "transferir",
+    "editar_conta",
+    "editar_ganho",
+    "editar_banco",
+    "apagar_conta",
+    "apagar_ganho",
+    "apagar_banco",
     "consultar_sobra",
     "consultar_falta",
     "consultar_banco",
@@ -50,13 +56,13 @@ ESQUEMA = {
         "valor": _campo("STRING", "valor falado com ponto decimal, ex.: 180.00"),
         "banco_id": _campo("STRING", "id do banco citado (na transferência: o de origem)"),
         "banco_destino_id": _campo("STRING", "transferir: id do banco de destino"),
-        "nome": _campo("STRING", "nome do ganho, conta ou banco novo"),
-        "data": _campo("STRING", "novo_ganho: quando entra, AAAA-MM-DD"),
+        "nome": _campo("STRING", "nome do ganho, conta ou banco novo; no editar, o nome NOVO"),
+        "data": _campo("STRING", "novo_ganho/editar_ganho: quando entra, AAAA-MM-DD"),
         "tipo_conta": _campo(
             "STRING", "nova_conta: unica, fixa ou parcelada", enum=list(TIPOS_CONTA)
         ),
         "parcelas": _campo("INTEGER", "nova_conta parcelada: número de parcelas"),
-        "dia": _campo("INTEGER", "nova_conta: dia do vencimento (1 a 31)"),
+        "dia": _campo("INTEGER", "nova_conta/editar_conta: dia do vencimento (1 a 31)"),
     },
     "required": [
         "acao",
@@ -89,6 +95,7 @@ class ContextoDeVoz:
     ganhos: tuple[Opcao, ...]  # ganhos que ainda vão entrar
     bancos: tuple[Opcao, ...]
     pagas: tuple[Opcao, ...] = ()  # pagamentos feitos no mês (para desfazer)
+    cadastro: tuple[Opcao, ...] = ()  # todas as contas cadastradas (para editar/apagar)
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +116,7 @@ class Proposta:
     parcelas: int | None = None
     dia: int = 0
     mes_inicio: Mes | None = None
+    parar_em: Mes | None = None  # apagar conta de todo mês: "parar a partir de"
 
 
 NAO_ENTENDI = (
@@ -147,6 +155,14 @@ Hoje é {hoje.isoformat()}. Escolha UMA ação:
 - somar_banco: entrou dinheiro num banco que não é ganho previsto ("coloquei 200 no nubank").
 - ajustar_saldo: informa o saldo atual de um banco ("o nubank tá com 1500").
 - transferir: passou dinheiro de um banco para outro ("passei 300 do nubank pra caixa").
+- editar_conta: mudar valor, dia de vencimento ou nome de uma conta cadastrada
+  ("muda o aluguel pra 1400", "a conta do celular vence dia 5").
+- editar_ganho: mudar valor, data ou nome de um ganho que vai entrar ("o fgts entra dia 30").
+- editar_banco: trocar o nome de um banco ("troca o nome do nubank pra nu").
+- apagar_conta: apagar/remover/excluir uma conta cadastrada ("apaga a conta do celular").
+- apagar_ganho: apagar ganho(s) que vão entrar ("apaga o freela"). "Todos" = todos os ids
+  em opcoes_ids.
+- apagar_banco: apagar/remover um banco ("apaga o banco caixa").
 - consultar_sobra: pergunta quanto sobra no mês.
 - consultar_falta: pergunta quanto ainda falta pagar.
 - consultar_banco: pergunta quanto tem num banco ou no total.
@@ -160,10 +176,14 @@ Regras:
 - tipo_conta: "todo mês" = fixa; "em N vezes" = parcelada; senão unica.
 - data e dia: "dia 10" = dia 10 deste mês, ou do próximo se já passou; "amanhã", "sexta"
   etc. a partir de hoje.
+- No editar: valor, dia, data e nome são os NOVOS; só preencha o que a pessoa pediu pra mudar.
 - Campo que não se aplica à ação: null.
 
-Contas em aberto:
+Contas em aberto (para pagar):
 {lista(contexto.contas)}
+
+Contas cadastradas (para editar ou apagar):
+{lista(contexto.cadastro)}
 
 Contas já pagas neste mês:
 {lista(contexto.pagas)}
@@ -212,13 +232,7 @@ def _nome(bruto: object) -> str:
 
 def _data(bruto: object, hoje: date) -> date:
     """Data da IA; vazia, inválida ou absurda vira hoje."""
-    try:
-        d = date.fromisoformat(str(bruto))
-    except ValueError:
-        return hoje
-    if not hoje - timedelta(DIAS_PARA_TRAS) <= d <= hoje + timedelta(DIAS_PARA_FRENTE):
-        return hoje
-    return d
+    return _data_ou_none(bruto, hoje) or hoje
 
 
 def _mes_de(d: date) -> Mes:
@@ -242,8 +256,16 @@ def _escolher_item(acao: str, resposta: dict, onde: tuple[Opcao, ...]) -> Propos
     return Proposta(acao, item=item)
 
 
+def _banco_citado(resposta: dict, contexto: ContextoDeVoz) -> Opcao | None:
+    """O banco que a pessoa citou. A IA às vezes põe o id do banco em item_id: aceita os dois
+    (o id é conferido contra os bancos do usuário do mesmo jeito)."""
+    return _achar(contexto.bancos, resposta.get("banco_id")) or _achar(
+        contexto.bancos, resposta.get("item_id")
+    )
+
+
 def _banco_falado_ou_unico(resposta: dict, contexto: ContextoDeVoz) -> Opcao | None:
-    banco = _achar(contexto.bancos, resposta.get("banco_id"))
+    banco = _banco_citado(resposta, contexto)
     if banco is None and len(contexto.bancos) == 1:
         banco = contexto.bancos[0]  # só tem um banco: não precisa perguntar
     return banco
@@ -354,10 +376,83 @@ def _conferir_transferir(resposta, contexto, hoje, mes):
     return Proposta("transferir", banco=origem, banco_destino=destino, valor=valor)
 
 
+def _data_ou_none(bruto: object, hoje: date) -> date | None:
+    """Data nova falada no editar; vazia ou absurda = não muda."""
+    try:
+        d = date.fromisoformat(str(bruto))
+    except ValueError:
+        return None
+    if not hoje - timedelta(DIAS_PARA_TRAS) <= d <= hoje + timedelta(DIAS_PARA_FRENTE):
+        return None
+    return d
+
+
+def _dia_ou_zero(bruto: object) -> int:
+    return bruto if isinstance(bruto, int) and 1 <= bruto <= 31 else 0
+
+
+def _conferir_editar(acao: str, onde: Callable[[ContextoDeVoz], tuple[Opcao, ...]], *, usa: str):
+    """Editar conta (valor, dia, nome) ou ganho (valor, data, nome): só o que foi pedido muda."""
+
+    def conferir(resposta, contexto, hoje, mes):
+        p = _escolher_item(acao, resposta, onde(contexto))
+        if p.acao == "nao_entendi":
+            return p
+        try:
+            valor = _valor(resposta.get("valor"))
+        except ValueError:
+            return _nao("Não entendi o valor novo. Fala de novo com o valor.")
+        dia = _dia_ou_zero(resposta.get("dia")) if usa == "dia" else 0
+        data = _data_ou_none(resposta.get("data"), hoje) if usa == "data" else None
+        nome = _nome(resposta.get("nome"))
+        if p.item and nome.casefold() == p.item.nome.casefold():
+            nome = ""  # repetiu o nome atual: não é renomear
+        if not (valor or dia or data or nome):
+            quem = p.item.nome if p.item else "isso"
+            quando = "o dia" if usa == "dia" else "a data"
+            return _nao(f"O que você quer mudar em {quem}? O valor, {quando} ou o nome.")
+        return replace(p, valor=valor, dia=dia, data=data, nome=nome)
+
+    return conferir
+
+
+def _conferir_editar_banco(resposta, contexto, hoje, mes):
+    banco = _banco_falado_ou_unico(resposta, contexto)
+    if banco is None:
+        return _nao("Qual banco? Fala o nome do banco junto.")
+    nome = _nome(resposta.get("nome"))
+    if not nome or nome.casefold() == banco.nome.casefold():
+        return _nao(
+            f"Qual o nome novo do {banco.nome}? Pra mudar o saldo, fala “o {banco.nome} tá com…”."
+        )
+    if any(b.nome.casefold() == nome.casefold() for b in contexto.bancos):
+        return _nao(f"Você já tem o banco {nome}.")
+    return Proposta("editar_banco", banco=banco, nome=nome)
+
+
+def _conferir_apagar_conta(resposta, contexto, hoje, mes):
+    p = _escolher_item("apagar_conta", resposta, contexto.cadastro)
+    # conta de todo mês: a tela pergunta se para a partir do mês seguinte ou apaga de vez
+    return replace(p, parar_em=mes.somar(1)) if p.acao == "apagar_conta" else p
+
+
+def _conferir_apagar_ganho(resposta, contexto, hoje, mes):
+    p = _escolher_item("apagar_ganho", resposta, contexto.ganhos)
+    return replace(p, mensagem="Apagar estes ganhos?") if p.opcoes else p
+
+
+def _conferir_apagar_banco(resposta, contexto, hoje, mes):
+    # apagar é sério: só o banco que a pessoa citou (nunca o "único" por conta própria)
+    banco = _banco_citado(resposta, contexto)
+    if banco is None:
+        return _nao("Qual banco você quer apagar? Fala o nome dele.")
+    return Proposta("apagar_banco", banco=banco)
+
+
 def _conferir_consulta(acao: str):
     def conferir(resposta, contexto, hoje, mes):
         # consultar_banco: o banco citado, ou None = total de todos
-        return Proposta(acao, banco=_achar(contexto.bancos, resposta.get("banco_id")))
+        return Proposta(acao, banco=_banco_citado(resposta, contexto))
 
     return conferir
 
@@ -372,6 +467,12 @@ CONFERIR: dict[str, Callable[[dict, ContextoDeVoz, date, Mes], Proposta]] = {
     "somar_banco": _conferir_saldo("somar_banco"),
     "ajustar_saldo": _conferir_saldo("ajustar_saldo"),
     "transferir": _conferir_transferir,
+    "editar_conta": _conferir_editar("editar_conta", lambda c: c.cadastro, usa="dia"),
+    "editar_ganho": _conferir_editar("editar_ganho", lambda c: c.ganhos, usa="data"),
+    "editar_banco": _conferir_editar_banco,
+    "apagar_conta": _conferir_apagar_conta,
+    "apagar_ganho": _conferir_apagar_ganho,
+    "apagar_banco": _conferir_apagar_banco,
     "consultar_sobra": _conferir_consulta("consultar_sobra"),
     "consultar_falta": _conferir_consulta("consultar_falta"),
     "consultar_banco": _conferir_consulta("consultar_banco"),
