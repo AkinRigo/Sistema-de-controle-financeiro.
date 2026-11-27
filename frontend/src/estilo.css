@@ -120,7 +120,7 @@ details.add[open] summary{margin-bottom:14px;background:var(--panel)}
 .empty{color:var(--muted);padding:12px 0;font-size:15px}
 
 /* por categoria */
-.cat{display:grid;grid-template-columns:minmax(0,1.6fr) repeat(4,minmax(0,1fr));gap:12px;align-items:center;padding:14px 8px;cursor:pointer;list-style:none}
+.cat{display:grid;grid-template-columns:minmax(0,1.6fr) repeat(2,minmax(0,1fr));gap:12px;align-items:center;padding:14px 8px;cursor:pointer;list-style:none}
 .cat::-webkit-details-marker{display:none}
 .cat>span:not(.cn){text-align:right;font:500 16px var(--num);white-space:nowrap}
 .cat-h>span:first-child{text-align:left!important}.cat-h{cursor:default;font-size:13px;color:var(--muted);border-bottom:3px solid var(--edge)}.cat-h>span:not(:first-child){font:13px Inter,sans-serif!important}

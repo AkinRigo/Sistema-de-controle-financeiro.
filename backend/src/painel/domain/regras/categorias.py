@@ -141,7 +141,11 @@ def resumir_categorias(
     """Calcula totais por categoria para o mês consultado."""
     contas_lista = tuple(contas)
     pagamentos_lista = tuple(pagamentos)
-    abertas = obter_abertas(contas_lista, pagamentos_lista, mes, desde)
+    abertas = tuple(
+        aberta
+        for aberta in obter_abertas(contas_lista, pagamentos_lista, mes, desde)
+        if aberta.mes_origem == mes
+    )
     categorias = {
         chave: {
             "falta_pagar": [],
@@ -157,9 +161,7 @@ def resumir_categorias(
         categorias[categoria_da_conta(aberta.conta)]["falta_pagar"].append(aberta.conta.valor)
     for pagamento in pagamentos_lista:
         conta = contas_por_id.get(pagamento.conta_id)
-        if conta is not None and (
-            pagamento.mes_conta == mes or pagamento.data_pagamento.strftime("%Y-%m") == mes.valor
-        ):
+        if conta is not None and pagamento.mes_conta == mes:
             categorias[categoria_da_conta(conta)]["ja_pago"].append(pagamento.valor_pago)
     for conta in contas_lista:
         categoria = categoria_da_conta(conta)

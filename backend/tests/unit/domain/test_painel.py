@@ -90,7 +90,7 @@ def test_itens_por_categoria():
     ]
     outros = {i.conta.nome: i for i in itens["outros"]}
     assert set(outros) == {"Celular", "Multa"}
-    assert outros["Celular"].valor == dinheiro("300") and outros["Celular"].parcelas_restantes == 3
+    assert outros["Celular"].valor == dinheiro("100") and outros["Celular"].parcelas_restantes == 3
     assert outros["Multa"].parcelas_restantes is None
 
 

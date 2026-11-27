@@ -1,5 +1,7 @@
 """Testes para dívida pendente e classificação de despesas."""
 
+from datetime import date
+
 import pytest
 
 from painel.domain.entidades import TipoConta
@@ -150,3 +152,47 @@ def test_resumo_por_categoria_reune_abertas_pagamentos_fixas_e_divida() -> None:
     assert resumo["alimentacao"].ja_pago == dinheiro("18")
     assert resumo["alimentacao"].ainda_devo == dinheiro("0")
     assert set(resumo) == set(CATEGORIAS)
+
+
+def test_resumo_por_categoria_considera_somente_a_competencia_selecionada() -> None:
+    aluguel = conta(
+        id="aluguel",
+        nome="Aluguel",
+        valor="100",
+        tipo=TipoConta.FIXA,
+        mes_inicio="2026-10",
+    )
+    parcela = conta(
+        id="parcela",
+        nome="Celular",
+        valor="50",
+        tipo=TipoConta.PARCELADA,
+        mes_inicio="2026-10",
+        parcela_inicial=1,
+        total_parcelas=3,
+        categoria="moto",
+    )
+    conta_anterior = conta(
+        id="anterior",
+        nome="Compra",
+        valor="25",
+        tipo=TipoConta.UNICA,
+        mes_inicio="2026-10",
+    )
+    pagamento_atrasado = pagamento(
+        conta_id="anterior",
+        mes_conta="2026-10",
+        data_pagamento=date(2026, 11, 10),
+    )
+
+    resumo = resumir_categorias(
+        Mes("2026-11"),
+        Mes("2026-10"),
+        [aluguel, parcela, conta_anterior],
+        [pagamento_atrasado],
+    )
+
+    assert resumo["casa"].falta_pagar == dinheiro("100")
+    assert resumo["moto"].falta_pagar == dinheiro("50")
+    assert resumo["outros"].falta_pagar == dinheiro("0")
+    assert resumo["outros"].ja_pago == dinheiro("0")

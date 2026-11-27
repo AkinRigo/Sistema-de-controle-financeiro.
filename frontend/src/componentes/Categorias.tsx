@@ -20,22 +20,23 @@ export function Categorias() {
   const { dados, mes } = c;
   // só mostra categorias com algum valor
   const usadas = dados.categorias.filter(
-    (r) => num(r.falta_pagar) || num(r.ja_pago) || num(r.ainda_devo) || num(r.fixas_por_mes),
+    (r) => num(r.falta_pagar) || num(r.ja_pago),
   );
   const maior = Math.max(1, ...usadas.map((r) => num(r.falta_pagar) + num(r.ja_pago)));
+  const totalPendente =
+    usadas.reduce((total, r) => total + Math.round(num(r.falta_pagar) * 100), 0) / 100;
   const contaPorId = new Map(dados.contas.map((x) => [x.id, x]));
 
   return (
-    <Secao id="categorias" titulo="Por categoria" resumo={`${dinheiro(dados.resumo.falta_pagar)} a pagar`}>
+    <Secao id="categorias" titulo="Por categoria" resumo={`${dinheiro(totalPendente)} a pagar`}>
       <p className="hint">
-        Quanto vai para cada lado. “Ainda devo” soma dívidas e parcelas futuras (contas fixas como aluguel não entram).
-        Clique numa categoria para ver os itens. A barra mostra o mês: verde é o que já foi pago.
+        Valores da competência selecionada. Clique numa categoria para ver as contas e parcelas ainda não pagas.
+        A barra mostra o que já foi pago e o que falta pagar no mês.
       </p>
       <div>
         {usadas.length ? (<>
           <div className="cat cat-h">
             <span>Categoria</span><span>Falta pagar em {nomeMes(mes)}</span><span>Já pago no mês</span>
-            <span>Fixas por mês</span><span>Ainda devo (total)</span>
           </div>
           {usadas.map((r) => {
             const mesTotal = num(r.falta_pagar) + num(r.ja_pago);
@@ -52,8 +53,6 @@ export function Categorias() {
                   </span>
                   <span data-l="Falta pagar" className={num(r.falta_pagar) ? "neg" : ""}>{dinheiro(r.falta_pagar)}</span>
                   <span data-l="Já pago">{dinheiro(r.ja_pago)}</span>
-                  <span data-l="Fixas/mês">{dinheiro(r.fixas_por_mes)}</span>
-                  <span data-l="Ainda devo"><b>{dinheiro(r.ainda_devo)}</b></span>
                 </summary>
                 <ul>
                   {r.itens.length
@@ -84,6 +83,7 @@ export function Categorias() {
           })}
         </>) : <div className="empty">Nenhuma conta cadastrada.</div>}
       </div>
+      <div className="total"><span>Total em aberto nesta competência</span><b>{dinheiro(totalPendente)}</b></div>
       <div className="total"><span>Dívida total (todas as categorias)</span><b>{dinheiro(dados.resumo.divida_total)}</b></div>
       <NovaConta />
     </Secao>

@@ -60,7 +60,7 @@ def test_categorias_trazem_itens(cliente, auth):
     ]
     air = cats["pessoas"]["itens"][0]
     assert air["parcelas_restantes"] == 6 and air["total_parcelas"] == 8
-    assert air["valor"] == "539.40" and air["valor_parcela"] == "89.90"
+    assert air["valor"] == "89.90" and air["valor_parcela"] == "89.90"
     assert air["credor"] == "Irmã"
 
 

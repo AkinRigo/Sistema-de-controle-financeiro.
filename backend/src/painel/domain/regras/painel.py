@@ -62,22 +62,20 @@ class ItemCategoria:
 def itens_por_categoria(
     mes: Mes, desde: Mes, contas: Iterable[Conta], pagamentos: Iterable[Pagamento]
 ) -> dict[str, list[ItemCategoria]]:
-    """Contas fixas ativas no mês (valor mensal) e dívidas com saldo (valor que ainda falta)."""
+    """Ocorrências não pagas da competência, com o valor devido naquele mês."""
     pagamentos_lista = tuple(pagamentos)
+    meses_pagos = {(pagamento.conta_id, pagamento.mes_conta) for pagamento in pagamentos_lista}
     itens: dict[str, list[ItemCategoria]] = {}
     for conta in contas:
+        if not aparece_em(conta, mes) or (conta.id, mes) in meses_pagos:
+            continue
+
         chave = categoria_da_conta(conta)
-        if conta.tipo is TipoConta.FIXA:
-            if aparece_em(conta, mes):
-                itens.setdefault(chave, []).append(ItemCategoria(conta, conta.valor, None))
-            continue
-        devo = calcular_divida_conta(conta, desde, pagamentos_lista)
-        if devo.valor <= 0:
-            continue
         restantes = None
         if conta.tipo is TipoConta.PARCELADA and conta.valor.valor > 0:
+            devo = calcular_divida_conta(conta, desde, pagamentos_lista)
             restantes = int((devo.valor / conta.valor.valor).to_integral_value(ROUND_HALF_UP))
-        itens.setdefault(chave, []).append(ItemCategoria(conta, devo, restantes))
+        itens.setdefault(chave, []).append(ItemCategoria(conta, conta.valor, restantes))
     return itens
 
 
