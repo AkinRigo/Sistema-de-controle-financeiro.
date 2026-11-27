@@ -16,7 +16,7 @@ const TITULOS: Record<Modo, [string, string]> = {
   redefinir: ["Nova senha", "Escolha sua senha nova."],
   aguardando: ["Confira seu e-mail", "Falta só ativar sua conta."],
   confirmando: ["Ativando…", "Ativando sua conta…"],
-  convite: ["Você foi convidado(a)!", "Crie sua senha para entrar no No Corre das Notas."],
+  convite: ["Você recebeu um convite!", "Crie sua senha para entrar no No Corre das Notas."],
 };
 
 const Titulo = ({ modo }: { modo: Modo }) => (

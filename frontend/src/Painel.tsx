@@ -6,10 +6,13 @@ import { Categorias } from "./componentes/Categorias";
 import { Contas } from "./componentes/Contas";
 import { Corridas } from "./componentes/Corridas";
 import { Ganhos } from "./componentes/Ganhos";
+import { ResumoTopo } from "./componentes/ResumoTopo";
+import { Graficos } from "./componentes/Graficos";
+import { Voz } from "./componentes/Voz";
 import { Admin } from "./componentes/Admin";
 import { LogoLinha } from "./componentes/Logo";
 import { Rodape } from "./componentes/Rodape";
-import { HOJE, MES_ATUAL, dinheiro, maiuscula, mesCompleto, nomeMes, num, somarMes } from "./util";
+import { HOJE, MES_ATUAL, dinheiro, maiuscula, mesCompleto, nomeMes, somarMes } from "./util";
 
 type Vista = "bills" | "incomes" | "accounts" | "debts" | "sim";
 type Tema = "auto" | "light" | "dark";
@@ -39,7 +42,7 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
   const [dados, setDados] = useState<Dados | null>(null);
   const [erroCarga, setErroCarga] = useState("");
   const [vista, setVista] = useState<Vista>("bills");
-  const [tela, setTela] = useState<"painel" | "admin">("painel");
+  const [tela, setTela] = useState<"painel" | "admin" | "graficos">("painel");
   const [aberto, setAberto] = useState<string | null>(null);
   const [ultimoBanco, setUltimoBanco] = useState("");
   const [tema, setTema] = useState<Tema>(lerTema);
@@ -124,10 +127,14 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
   const r = dados.resumo;
   const nm = nomeMes(mes);
   const vazio = !dados.contas.length && !dados.bancos.length && !dados.ganhos.length && !dados.rendas.length;
-  const sobra = num(r.sobra), falta = num(r.falta_pagar);
-  const pct = r.cobertura;
-  const abertas = r.abertas.length, atrasadas = r.abertas.filter((a) => a.atrasada).length;
+  const abertas = r.abertas.length;
   const ligado = dados.corridas.contar_na_previsao;
+
+  // Dos cards do topo: abre a aba, a caixinha (editar/excluir) e rola até ela.
+  const irPara = (v: Vista, chave?: string) => {
+    setVista(v); setAberto(chave ?? null);
+    setTimeout(() => document.getElementById("secoes")?.scrollIntoView({ behavior: "smooth" }), 50);
+  };
 
   const vistas: [Vista, string, string][] = [
     ["bills", `Contas de ${nm}`, abertas ? `${dinheiro(r.falta_pagar)} em aberto` : "tudo pago"],
@@ -146,12 +153,15 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
       <header className="strip">
         <div className="marca"><h1 style={{ margin: 0, lineHeight: 0 }}><LogoLinha /></h1><div className="save">Conectado como {dados.usuario.nome || usuario.nome}</div></div>
         <div className="nav">
-          {tela === "painel" && (<>
+          {tela !== "admin" && (<>
             <button className="sbtn" onClick={() => setMes(somarMes(mes, -1))} aria-label="Mês anterior">‹</button>
             <div className="mon">{maiuscula(mesCompleto(mes))}</div>
             <button className="sbtn" onClick={() => setMes(somarMes(mes, 1))} aria-label="Próximo mês">›</button>
             {mes !== MES_ATUAL && <button className="sbtn" onClick={() => setMes(MES_ATUAL)}>Hoje</button>}
           </>)}
+          <button className={`sbtn ${tela === "graficos" ? "on" : ""}`} onClick={() => { setTela(tela === "graficos" ? "painel" : "graficos"); scrollTo(0, 0); }}>
+            {tela === "graficos" ? "Meu painel" : <><svg className="sbtn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-6" /></svg>Gráficos</>}
+          </button>
           {dados.usuario.admin && (
             <button className={`sbtn ${tela === "admin" ? "on" : ""}`} onClick={() => setTela(tela === "admin" ? "painel" : "admin")}>
               {tela === "admin" ? "Meu painel" : "Admin"}
@@ -185,61 +195,35 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
 
       {tela === "admin" ? (
         <main className="wrap"><Admin toast={toast} /></main>
+      ) : tela === "graficos" ? (
+        <main className="wrap"><Graficos irPara={(v, chave) => { setTela("painel"); irPara(v, chave); }} /></main>
       ) : (
       <main className="wrap">
         {vazio && (
           <section className="welcome">
-            <h2>Vamos começar</h2>
-            <p>Este painel é novo e ainda está vazio. Para trazer o que você já tinha:</p>
-            <ol>
-              <li>Abra o painel antigo (o arquivo <b>Painel_Financeiro_Mensal_Dividas.html</b>) ou o protótipo.</li>
-              <li>Clique em <b>Backup JSON</b> lá em cima. Ele baixa um arquivo <b>.json</b>.</li>
-              <li>Volte aqui e clique no botão abaixo para escolher esse arquivo.</li>
-            </ol>
-            <button className="btn pri" onClick={escolherArquivo}>Importar backup do painel antigo</button>
-            <span className="hint" style={{ marginLeft: 10 }}>ou cadastre seus bancos e contas do zero, logo abaixo.</span>
+            <h2>Boas-vindas ao No Corre das Notas, {dados.usuario.nome.split(" ")[0]}!</h2>
+            <p className="welcome-lead">Descubra para onde vão as suas notas. Escolha como começar:</p>
+            <div className="welcome-opcoes">
+              <div className="welcome-opcao">
+                <b>Já controlava em outro lugar?</b>
+                <span>Traga tudo de uma vez com o arquivo de backup (.json).</span>
+                <button className="btn pri" onClick={escolherArquivo}>Importar meus dados</button>
+              </div>
+              <div className="welcome-opcao">
+                <b>Começando do zero?</b>
+                <span>Cadastre seus bancos e as contas do mês. Leva poucos minutos.</span>
+                <div className="welcome-botoes">
+                  <button className="btn" onClick={() => { setVista("accounts"); setAberto(null); }}>Cadastrar bancos</button>
+                  <button className="btn" onClick={() => { setVista("bills"); setAberto(null); }}>Adicionar contas</button>
+                </div>
+              </div>
+            </div>
           </section>
         )}
 
-        <section className="hero">
-          <div>
-            {vazio ? (<>
-              <div className="big">Nenhum dado ainda</div>
-              <p className="sub">Importe o backup do painel antigo ou cadastre seus bancos e contas.</p>
-            </>) : sobra >= 0 ? (<>
-              <div className="big">Sobram <span className="pos">{dinheiro(sobra)}</span> no fim de {nm}</div>
-              <p className="sub">{falta ? "Se tudo que está previsto entrar, entrar, dá para pagar todas as contas em aberto." : "Nenhuma conta em aberto neste mês."}</p>
-            </>) : (<>
-              <div className="big">Faltam <span className="neg">{dinheiro(-sobra)}</span> para fechar {nm}</div>
-              <p className="sub">O dinheiro que você tem e espera receber não cobre as {abertas} contas em aberto. Veja abaixo o que pagar primeiro.</p>
-            </>)}
-            <div className={`meter ${pct < 100 ? "short" : ""}`}><i style={{ width: `${pct}%` }} /></div>
-            <div className="meter-note">{falta ? `Seu dinheiro cobre ${pct}% das contas em aberto.` : ""}</div>
-          </div>
-          <div className="eq">
-            <div><span className="op" /><span>Tenho nos bancos <small>{mes < MES_ATUAL ? "saldo de hoje" : "soma dos bancos, hoje"}</small></span><b>{dinheiro(r.tenho)}</b></div>
-            <div>
-              <span className="op">+</span>
-              <span>
-                Vai entrar{" "}
-                <button type="button" className="lnk" onClick={() => { setVista("incomes"); setAberto("novoGanho"); }}>+ adicionar</button>
-                <small>renda fixa e ganhos marcados como “vai entrar”</small>
-              </span>
-              <b>{dinheiro(r.vai_entrar)}</b>
-            </div>
-            {ligado && (
-              <div><span className="op">+</span><span>Corridas (estimativa) <small>{mes === MES_ATUAL ? "dias que faltam no mês" : "mês inteiro"}</small></span><b>{dinheiro(r.corridas)}</b></div>
-            )}
-            <div>
-              <span className="op">−</span>
-              <span>Falta pagar <small>{abertas} conta{abertas === 1 ? "" : "s"}{atrasadas ? `, ${atrasadas} atrasada${atrasadas > 1 ? "s" : ""} de meses anteriores` : ""}</small></span>
-              <b>{dinheiro(r.falta_pagar)}</b>
-            </div>
-            <div><span className="op">=</span><span>{sobra >= 0 ? "Sobra" : "Falta"}</span><b className={sobra >= 0 ? "pos" : "neg"}>{dinheiro(Math.abs(sobra))}</b></div>
-          </div>
-        </section>
+        <ResumoTopo irPara={irPara} />
 
-        <nav className="sect" aria-label="Seções">
+        <nav className="sect" id="secoes" aria-label="Seções">
           {vistas.map(([k, l, v]) => (
             <button key={k} className={vista === k ? "on" : ""} onClick={() => { setVista(k); setAberto(null); }}>
               <span>{l}</span><b>{v}</b>
@@ -254,6 +238,7 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
         {vista === "sim" && <Corridas key={mes} />}
       </main>
       )}
+      {tela !== "admin" && <Voz />}
       <Rodape />
       <div className={`toast ${toastVisivel ? "show" : ""}`} role="status">{toastTexto}</div>
     </Contexto.Provider>

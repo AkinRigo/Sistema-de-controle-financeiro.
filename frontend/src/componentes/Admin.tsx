@@ -254,7 +254,7 @@ function Convite({ toast }: { toast: (t: string) => void }) {
           </div>
           <div className="email-corpo">
             <span className="email-marca">No Corre das Notas</span>
-            <b>Seja bem-vindo(a) ao No Corre das Notas, {nome.trim() || "[nome]"}!</b>
+            <b>Boas-vindas ao No Corre das Notas, {nome.trim() || "[nome]"}!</b>
             <span>Pra gente, o que importa é como você lida com o seu dinheiro, e queremos estar junto nisso.</span>
             <span>Por isso te enviamos este <b>convite especial</b> para criar sua conta no nosso site e no aplicativo e organizar sua vida financeira, <b>sem custo nenhum</b>.</span>
             <span className="email-botao">Aceitar convite e criar minha senha</span>

@@ -16,6 +16,7 @@ from painel.api.schemas import (
     MesTexto,
     PagamentoSaida,
     ResumoSaida,
+    SaldoDiarioSaida,
 )
 from painel.domain.entidades import Banco, Conta, Ganho, Pagamento, Usuario
 from painel.domain.regras.categorias import CATEGORIAS, categoria_da_conta, resumir_categorias
@@ -29,6 +30,7 @@ from painel.domain.regras.painel import (
     situacao_vencimento,
 )
 from painel.domain.regras.resumo import calcular_resumo
+from painel.domain.regras.saldo_diario import DiaDeSaldo, saldo_dia_a_dia
 from painel.domain.valores import Dinheiro, Mes
 from painel.infra import mapeamento
 from painel.infra.modelos import (
@@ -67,8 +69,7 @@ def _carregar(sessao: Session, usuario: UsuarioModelo) -> _Dados:
     )
 
 
-@router.get("/resumo/{mes}", response_model=ResumoSaida)
-def resumo(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep) -> ResumoSaida:
+def _calcular(sessao: Session, usuario: UsuarioModelo, mes: str, hoje):
     garantir_rendas(sessao, usuario, Mes(mes))
     dados = _carregar(sessao, usuario)
     r = calcular_resumo(
@@ -83,6 +84,12 @@ def resumo(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep)
         por_fim_de_semana=Dinheiro.de(usuario.corridas_por_fim_de_semana),
         contar_na_previsao=usuario.contar_corridas,
     )
+    return dados, r
+
+
+@router.get("/resumo/{mes}", response_model=ResumoSaida)
+def resumo(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep) -> ResumoSaida:
+    dados, r = _calcular(sessao, usuario, mes, hoje)
     contas_por_id = {c.id: c for c in dados.contas}
     return ResumoSaida(
         mes=r.mes.valor,
@@ -132,6 +139,32 @@ def resumo(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep)
         divida_total=calcular_divida_total(
             dados.contas, dados.usuario.desde, dados.pagamentos
         ).valor,
+    )
+
+
+def _dia(d: DiaDeSaldo) -> dict:
+    return {
+        "dia": d.dia,
+        "saldo": d.saldo.valor,
+        "previsao": d.previsao,
+        "movimentos": [
+            {"nome": m.nome, "valor": m.valor.valor, "previsto": m.previsto} for m in d.movimentos
+        ],
+    }
+
+
+@router.get("/saldo-diario/{mes}", response_model=SaldoDiarioSaida)
+def saldo_diario(
+    mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep
+) -> SaldoDiarioSaida:
+    """Saldo no fim de cada dia do mês (gráfico de barras). Corridas ficam de fora."""
+    dados, r = _calcular(sessao, usuario, mes, hoje)
+    s = saldo_dia_a_dia(r, hoje, dados.contas, dados.pagamentos, dados.ganhos)
+    return SaldoDiarioSaida(
+        mes=mes,
+        hoje=s.hoje,
+        dias=[_dia(d) for d in s.dias],
+        menor=_dia(s.menor) if s.menor else None,
     )
 
 

@@ -37,7 +37,7 @@ export function Bancos() {
   );
 }
 
-function LinhaBanco({ b }: { b: Banco }) {
+export function LinhaBanco({ b }: { b: Banco }) {
   const c = useCtx();
   function salvar() {
     const v = lerDinheiro(valorDe("adjVal"));

@@ -30,6 +30,7 @@ from painel.api.schemas import (
     PagamentoSaida,
     PararContaEntrada,
     ReceberEntrada,
+    TransferenciaEntrada,
 )
 from painel.domain.entidades import Conta, Corridas, TipoConta
 from painel.domain.erros import ErroDeValidacao
@@ -160,6 +161,21 @@ def editar_banco(
     banco.nome = dados.nome
     banco.saldo = Dinheiro.de(dados.saldo).valor
     return _banco_saida(banco)
+
+
+@router.post("/bancos/transferir", response_model=list[BancoSaida], tags=["bancos"])
+def transferir(
+    dados: TransferenciaEntrada, sessao: SessaoDep, usuario: UsuarioDep
+) -> list[BancoSaida]:
+    """Passa dinheiro de um banco para outro. As duas mudanças vão na mesma transação."""
+    if dados.de == dados.para:
+        raise ErroDeValidacao("Escolha dois bancos diferentes.")
+    origem = _do_usuario(sessao, BancoModelo, dados.de, usuario, "Banco")
+    destino = _do_usuario(sessao, BancoModelo, dados.para, usuario, "Banco")
+    valor = Dinheiro.de(dados.valor)
+    origem.saldo = (Dinheiro.de(origem.saldo) - valor).valor
+    destino.saldo = (Dinheiro.de(destino.saldo) + valor).valor
+    return [_banco_saida(origem), _banco_saida(destino)]
 
 
 @router.delete("/bancos/{banco_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["bancos"])

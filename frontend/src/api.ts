@@ -59,6 +59,30 @@ export interface Categoria {
   chave: string; nome: string; falta_pagar: string; ja_pago: string; fixas_por_mes: string; ainda_devo: string;
   itens: ItemCategoria[];
 }
+// ---------- gráficos ----------
+export interface Movimento { nome: string; valor: string; previsto: boolean }
+export interface DiaDeSaldo { dia: number; saldo: string; previsao: boolean; movimentos: Movimento[] }
+export interface SaldoDiario { mes: string; hoje: number | null; dias: DiaDeSaldo[]; menor: DiaDeSaldo | null }
+// ---------- voz ----------
+export interface ItemVoz { id: string; nome: string; valor: string; conta_id: string | null; mes_conta: string | null }
+export interface BancoVoz { id: string; nome: string; saldo: string }
+export interface PropostaVoz {
+  acao: "pagar_conta" | "desfazer_pagamento" | "receber_ganho" | "novo_ganho" | "nova_conta" | "novo_banco"
+    | "somar_banco" | "ajustar_saldo" | "transferir" | "consultar_sobra" | "consultar_falta" | "consultar_banco" | "nao_entendi";
+  mensagem: string;
+  item: ItemVoz | null;
+  opcoes: ItemVoz[];
+  valor: string | null;
+  banco: BancoVoz | null;
+  banco_destino: BancoVoz | null;
+  saldo_novo: string | null;
+  nome: string;
+  data: string | null;
+  tipo_conta: "" | Tipo;
+  parcelas: number | null;
+  dia: number;
+  mes_inicio: string | null;
+}
 // ---------- admin ----------
 export type StatusUsuario = "master" | "ativo" | "nao_ativou" | "convidado" | "desativado";
 export interface AdminUsuario { id: string; tipo: "usuario" | "convite"; nome: string; email: string; status: StatusUsuario; detalhe: string }
@@ -143,6 +167,7 @@ export const api = {
   criarBanco: (nome: string, saldo: string) => pedir<Banco>("POST", "/bancos", { nome, saldo }),
   editarBanco: (id: string, nome: string, saldo: string) => pedir<Banco>("PUT", `/bancos/${id}`, { nome, saldo }),
   excluirBanco: (id: string) => pedir<void>("DELETE", `/bancos/${id}`),
+  transferir: (de: string, para: string, valor: string) => pedir<Banco[]>("POST", "/bancos/transferir", { de, para, valor }),
 
   contas: () => pedir<Conta[]>("GET", "/contas"),
   criarConta: (c: ContaEntrada) => pedir<Conta>("POST", "/contas", c),
@@ -172,6 +197,8 @@ export const api = {
 
   resumo: (mes: string) => pedir<Resumo>("GET", `/resumo/${mes}`),
   categorias: (mes: string) => pedir<Categoria[]>("GET", `/categorias/${mes}`),
+  saldoDiario: (mes: string) => pedir<SaldoDiario>("GET", `/saldo-diario/${mes}`),
+  entenderVoz: (texto: string, mes: string) => pedir<PropostaVoz>("POST", "/voz/entender", { texto, mes }),
 
   exportar: () => pedir<unknown>("GET", "/backup"),
   admin: {

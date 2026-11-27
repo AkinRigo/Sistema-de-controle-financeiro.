@@ -138,3 +138,18 @@ def test_corridas_estimativa_do_mes(cliente, auth):
     r = cliente.get("/configuracoes/corridas?mes=2026-11", headers=auth).json()
     assert r["estimativa_mes"] == "110.00"  # 11 dias restantes de novembro
     assert cliente.get("/configuracoes/corridas", headers=auth).json()["estimativa_mes"] is None
+
+
+def test_saldo_diario_do_mes(cliente, auth):
+    _criar(cliente, auth, "/bancos", {"nome": "Nu", "saldo": "1000"})
+    _criar(cliente, auth, "/contas", _conta("Aluguel", valor="700", dia_vencimento=25))
+    _criar(cliente, auth, "/ganhos", {"nome": "Freela", "valor": "300", "data": "2026-11-28"})
+
+    r = cliente.get("/saldo-diario/2026-11", headers=auth).json()
+    assert r["hoje"] == 20 and len(r["dias"]) == 30
+    dias = {d["dia"]: d for d in r["dias"]}
+    assert dias[20]["saldo"] == "1000.00" and not dias[20]["previsao"]
+    assert dias[25]["saldo"] == "300.00" and dias[25]["movimentos"][0]["nome"] == "Aluguel"
+    assert dias[30]["saldo"] == "600.00"
+    assert r["menor"]["dia"] == 25
+    assert cliente.get("/saldo-diario/2026-13", headers=auth).status_code == 422

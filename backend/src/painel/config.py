@@ -50,6 +50,9 @@ class Config:
     admin_api_key: str = ""
     # Pasta do site montado (frontend/dist) para o backend entregar em "/". Vazia = só API.
     frontend_dist: str = ""
+    # Comando de voz: chave do Google AI Studio (Gemini). Vazia = comando de voz desligado.
+    gemini_api_key: str = ""
+    voz_modelo: str = "gemini-3.5-flash-lite"
 
     @classmethod
     def do_ambiente(cls) -> "Config":
@@ -79,4 +82,6 @@ class Config:
             smtp_porta=int(os.environ.get("PAINEL_SMTP_PORTA", "465")),
             admin_api_key=os.environ.get("ADMIN_API_KEY", "").strip(),
             frontend_dist=os.environ.get("PAINEL_FRONTEND_DIST", "").strip(),
+            gemini_api_key=os.environ.get("GEMINI_API_KEY", "").strip(),
+            voz_modelo=os.environ.get("PAINEL_VOZ_MODELO", "gemini-3.5-flash-lite").strip(),
         )

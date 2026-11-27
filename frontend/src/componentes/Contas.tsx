@@ -19,7 +19,7 @@ export interface Item {
 const tipoTexto = (x: Item) =>
   x.conta.tipo === "fixa" ? "todo mês" : x.conta.tipo === "unica" ? "uma vez" : `parcela ${x.n} de ${x.conta.total_parcelas}`;
 
-function itensDoMes(contas: Conta[], abertas: Aberta[], pagas: Pagamento[]) {
+export function itensDoMes(contas: Conta[], abertas: Aberta[], pagas: Pagamento[]) {
   const porId = new Map(contas.map((c) => [c.id, c]));
   const abertos: Item[] = abertas.flatMap((a) => {
     const conta = porId.get(a.conta_id);
@@ -95,7 +95,7 @@ function TagVencimento({ x }: { x: Item }) {
   }
 }
 
-function LinhaConta({ x }: { x: Item }) {
+export function LinhaConta({ x }: { x: Item }) {
   const c = useCtx();
   const nomeCategoria = useNomeCategoria();
   const { conta, pagamento: p } = x;

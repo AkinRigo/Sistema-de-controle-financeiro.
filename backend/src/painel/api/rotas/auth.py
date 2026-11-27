@@ -125,7 +125,7 @@ def enviar_confirmacao(
 ) -> None:
     link = _link(request, "confirmar", emissor.emitir_confirmacao(usuario.id))
     corpo = _email(
-        f"Seja bem-vindo(a) ao No Corre das Notas, {usuario.nome}!",
+        f"Boas-vindas ao No Corre das Notas, {usuario.nome}!",
         "Sua conta foi criada. Clique no botão abaixo para ativar e depois é só "
         "entrar com seu e-mail e senha.",
         link,
@@ -133,7 +133,7 @@ def enviar_confirmacao(
         "vale por 24 horas",
     )
     _agendar_envio(
-        request, tarefas, usuario.email, "Bem-vindo ao No Corre das Notas! Ative sua conta", corpo
+        request, tarefas, usuario.email, "Boas-vindas ao No Corre das Notas! Ative sua conta", corpo
     )
 
 
@@ -155,7 +155,7 @@ def enviar_convite(
     convite: ConviteModelo, emissor: EmissorDeTokens, request: Request, tarefas: BackgroundTasks
 ) -> None:
     corpo = _email(
-        f"Seja bem-vindo(a) ao No Corre das Notas, {convite.nome}!",
+        f"Boas-vindas ao No Corre das Notas, {convite.nome}!",
         "Pra gente, o que importa é como você lida com o seu dinheiro, e queremos estar "
         "junto nisso.\n\n"
         "Por isso te enviamos este convite especial para criar sua conta no nosso site e no "

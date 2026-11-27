@@ -1,3 +1,0 @@
-# Vertra Cloud instala isto sozinho (pip install -r requirements.txt).
-# Instala o backend (pasta backend/) com as dependências do pyproject.toml.
-./backend

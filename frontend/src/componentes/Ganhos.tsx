@@ -128,11 +128,23 @@ function NovaRenda() {
   );
 }
 
+export function GanhosPrevistosResumo() {
+  const { dados } = useCtx();
+  const ganhos = dados.ganhos.filter((g) => !g.recebido);
+  if (!ganhos.length) return null;
+  return (
+    <div className="previstos-resumo">
+      {ganhos.map((g) => <LinhaGanho key={g.id} g={g} compacto />)}
+    </div>
+  );
+}
+
 // ---------------- ganhos do mês ----------------
 
-function LinhaGanho({ g }: { g: GanhoDoMes }) {
+function LinhaGanho({ g, compacto = false }: { g: GanhoDoMes; compacto?: boolean }) {
   const c = useCtx();
   const atrasado = g.atrasado;
+  const chaveEdicao = `${compacto ? "editarResumoGanho" : "editarGanho"}:${g.id}`;
   const nomeBanco = c.dados.bancos.find((b) => b.id === g.banco_id)?.nome;
   const base = { nome: g.nome, valor: g.valor, data: g.data, recebido: g.recebido, banco_id: g.banco_id };
 
@@ -154,7 +166,7 @@ function LinhaGanho({ g }: { g: GanhoDoMes }) {
   }
 
   return (
-    <div className="row noico">
+    <div className={`row noico${compacto ? " resumo-ganho" : ""}`}>
       <div>
         <div className="nm">
           {g.nome}
@@ -166,15 +178,15 @@ function LinhaGanho({ g }: { g: GanhoDoMes }) {
       </div>
       <div className="val">{dinheiro(g.valor)}</div>
       <div className="acts">
-        {g.recebido
+        {!compacto && (g.recebido
           ? <button className="lnk" onClick={() => c.executar(() => api.desfazerRecebimento(g.id),
               nomeBanco ? `${dinheiro(g.valor)} tirado do ${nomeBanco}.` : "Voltou para “vai entrar”.")}>Não recebi ainda</button>
-          : <button className="lnk" onClick={() => c.abrir("receber:" + g.id)}>Recebi</button>}
-        <button className="lnk" onClick={() => c.abrir("editarGanho:" + g.id)}>Editar</button>
+          : <button className="lnk" onClick={() => c.abrir("receber:" + g.id)}>Recebi</button>)}
+        <button className="lnk" onClick={() => c.abrir(chaveEdicao)}>Editar</button>
         <button className="lnk red" onClick={() => c.executar(() => api.excluirGanho(g.id),
-          `Ganho apagado${g.recebido && nomeBanco ? `, ${dinheiro(g.valor)} tirado do ${nomeBanco}` : ""}.`)}>Apagar</button>
+          `Ganho apagado${g.recebido && nomeBanco ? `, ${dinheiro(g.valor)} tirado do ${nomeBanco}` : ""}.`)}>Excluir</button>
       </div>
-      {c.aberto === "receber:" + g.id && (
+      {!compacto && c.aberto === "receber:" + g.id && (
         <div className="box">
           <p>Recebeu <b>{g.nome}</b>?</p>
           <label className="f">Valor que entrou (R$)<input id="recvVal" inputMode="decimal" defaultValue={paraCampo(g.valor)} autoFocus /></label>
@@ -184,7 +196,7 @@ function LinhaGanho({ g }: { g: GanhoDoMes }) {
           <button className="btn pri" onClick={confirmarRecebimento}>Confirmar</button><Cancelar />
         </div>
       )}
-      {c.aberto === "editarGanho:" + g.id && (
+      {c.aberto === chaveEdicao && (
         <div className="box">
           <label className="f">De onde<input id="ieName" defaultValue={g.nome} /></label>
           <label className="f">Valor (R$)<input id="ieVal" inputMode="decimal" defaultValue={paraCampo(g.valor)} /></label>

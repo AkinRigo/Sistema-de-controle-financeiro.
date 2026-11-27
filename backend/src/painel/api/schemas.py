@@ -134,6 +134,12 @@ class BancoEntrada(_ComDinheiro):
     saldo: DinheiroEntrada
 
 
+class TransferenciaEntrada(_ComDinheiro):
+    de: str
+    para: str
+    valor: DinheiroEntrada = Field(gt=0)
+
+
 class BancoSaida(BaseModel):
     id: str
     nome: str
@@ -292,6 +298,26 @@ class ResumoSaida(BaseModel):
     pagas: list[PagamentoSaida]
     cobertura: int
     divida_total: DinheiroSaida
+
+
+class MovimentoSaida(BaseModel):
+    nome: str
+    valor: DinheiroSaida  # positivo entra, negativo sai
+    previsto: bool
+
+
+class DiaDeSaldoSaida(BaseModel):
+    dia: int
+    saldo: DinheiroSaida
+    previsao: bool
+    movimentos: list[MovimentoSaida]
+
+
+class SaldoDiarioSaida(BaseModel):
+    mes: str
+    hoje: int | None
+    dias: list[DiaDeSaldoSaida]
+    menor: DiaDeSaldoSaida | None
 
 
 class ItemCategoriaSaida(BaseModel):

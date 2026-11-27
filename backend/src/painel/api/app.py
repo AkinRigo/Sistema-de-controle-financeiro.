@@ -15,12 +15,17 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 
 from painel.api.erros import mensagens
-from painel.api.rotas import admin, auth, backup, cadastros, relatorios, rendas
+from painel.api.rotas import admin, auth, backup, cadastros, relatorios, rendas, voz
 from painel.config import Config
 from painel.domain.erros import ErroDeValidacao
 from painel.infra.db import criar_engine, criar_fabrica_sessoes
 from painel.infra.email import EnviadorDeEmail, EnviadorSmtp, EnviadorTerminal
 from painel.infra.eventos import registrar
+from painel.infra.interpretador import (
+    Interpretador,
+    InterpretadorDesligado,
+    InterpretadorGemini,
+)
 from painel.infra.seguranca import EmissorDeTokens
 
 
@@ -36,6 +41,7 @@ def criar_app(
     config: Config | None = None,
     relogio: Callable[[], date] = date.today,
     enviador: EnviadorDeEmail | None = None,
+    interpretador: Interpretador | None = None,
 ) -> FastAPI:
     config = config or Config.do_ambiente()
     app = FastAPI(title="No Corre das Notas", version="0.1.0")
@@ -59,6 +65,13 @@ def criar_app(
             else EnviadorTerminal()
         )
     app.state.enviador = enviador
+    if interpretador is None:
+        interpretador = (
+            InterpretadorGemini(config.gemini_api_key, config.voz_modelo)
+            if config.gemini_api_key
+            else InterpretadorDesligado()
+        )
+    app.state.interpretador = interpretador
 
     # Registrado antes do CORS para a resposta de erro também levar os cabeçalhos de CORS.
     @app.middleware("http")
@@ -144,4 +157,5 @@ def criar_app(
     app.include_router(backup.router)
     app.include_router(rendas.router)
     app.include_router(admin.router)
+    app.include_router(voz.router)
     return app
