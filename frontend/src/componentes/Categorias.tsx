@@ -26,7 +26,7 @@ export function Categorias() {
   const contaPorId = new Map(dados.contas.map((x) => [x.id, x]));
 
   return (
-    <Secao id="categorias" titulo="Por categoria" resumo={`${dinheiro(dados.resumo.divida_total)} ainda devo`}>
+    <Secao id="categorias" titulo="Por categoria" resumo={`${dinheiro(dados.resumo.falta_pagar)} a pagar`}>
       <p className="hint">
         Quanto vai para cada lado. “Ainda devo” soma dívidas e parcelas futuras (contas fixas como aluguel não entram).
         Clique numa categoria para ver os itens. A barra mostra o mês: verde é o que já foi pago.

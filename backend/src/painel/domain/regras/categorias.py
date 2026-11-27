@@ -14,7 +14,7 @@ from painel.domain.valores import Dinheiro, Mes, somar_dinheiro
 CATEGORIAS: dict[str, str] = {
     "casa": "Casa",
     "pessoas": "Devo a pessoas",
-    "moto": "Moto",
+    "moto": "Locomoção",
     "cartoes": "Cartões e banco",
     "alimentacao": "Alimentação",
     "outros": "Outros",

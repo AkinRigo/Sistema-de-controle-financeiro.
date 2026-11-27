@@ -139,7 +139,7 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
     ["bills", `Contas de ${nm}`, abertas ? `${dinheiro(r.falta_pagar)} em aberto` : "tudo pago"],
     ["incomes", `Ganhos de ${nm}`, `${dinheiro(r.recebido)} recebido`],
     ["accounts", "Bancos", dinheiro(r.tenho)],
-    ["debts", "Por categoria", `${dinheiro(r.divida_total)} devo`],
+    ["debts", "Por categoria", `${dinheiro(r.falta_pagar)} a pagar`],
     ["sim", "Corridas", ligado ? `${dinheiro(r.corridas)} previsto` : "fora da previsão"],
   ];
 
