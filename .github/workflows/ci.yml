@@ -56,14 +56,18 @@ jobs:
       - name: Checar tipos e gerar build
         run: npm run build
 
-  publicar-vertra:
-    name: Atualizar branch deploy (Vertra Cloud)
-    # Só na main e só se backend e frontend passaram. A Vertra publica a branch "deploy".
+  deploy-vertra:
+    name: Deploy na Vertra Cloud
+    # Só em push na main e só se backend e frontend passaram.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [backend, frontend]
     runs-on: ubuntu-latest
+    # Não deixa um push novo cancelar um deploy no meio do envio.
+    concurrency:
+      group: deploy-vertra
+      cancel-in-progress: false
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -71,17 +75,17 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Montar o site (mesmo endereço do backend)
+      - name: Montar o site (o backend entrega frontend/dist)
         working-directory: frontend
         run: |
           npm ci
           npm run build
-      - name: Publicar na branch deploy
-        run: |
-          ALVO=deploy
-          git config user.name "github-actions[bot]"
-          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git checkout -B "$ALVO"
-          git add -f frontend/dist
-          git commit -m "$ALVO: ${GITHUB_SHA::7} de $GITHUB_REF_NAME (site montado)"
-          git push -f origin "$ALVO"
+      - name: Tirar o que não vai pro servidor
+        run: rm -rf frontend/node_modules
+      - name: Enviar para a Vertra e reiniciar
+        uses: vertracloud/github-action@v1
+        with:
+          api-key: ${{ secrets.VERTRA_API_KEY }}
+          app-id: ${{ secrets.VERTRA_APP_ID }}
+          path: .
+          restart: true
