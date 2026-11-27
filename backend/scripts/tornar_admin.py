@@ -5,7 +5,7 @@ Uso (dentro de backend/):
     .venv\Scripts\python scripts\tornar_admin.py outro@email.com
     .venv\Scripts\python scripts\tornar_admin.py outro@email.com --remover
 
-Usa o banco do backend/.env (PAINEL_DATABASE_URL, o Neon).
+Usa o banco do .env da raiz (PAINEL_DATABASE_URL, o Neon).
 """
 
 import sys
@@ -19,7 +19,7 @@ ADMIN_PADRAO = "akinrigo7@gmail.com"
 
 
 def main(argv: list[str]) -> int:
-    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     from painel.config import url_do_banco
     from painel.infra.db import criar_engine, criar_fabrica_sessoes
     from painel.infra.modelos import UsuarioModelo

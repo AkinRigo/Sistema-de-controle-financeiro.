@@ -23,7 +23,7 @@ def _chave_de(segredo: str) -> bytes:
 
 SEM_BANCO = (
     "PAINEL_DATABASE_URL não configurada. O banco do painel é o Neon: coloque a "
-    "connection string (postgresql://...neon.tech/...) no backend/.env."
+    "connection string (postgresql://...neon.tech/...) no .env da raiz do projeto."
 )
 
 

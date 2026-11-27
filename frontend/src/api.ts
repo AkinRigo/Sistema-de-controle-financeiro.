@@ -1,6 +1,6 @@
 // Cliente da API do backend. Dinheiro chega e sai como texto ("150.50").
 
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000";
+const BASE = import.meta.env.DEV ? "http://localhost:8000" : "";
 const CHAVE_TOKEN = "painel_token";
 
 export type Tipo = "fixa" | "unica" | "parcelada";

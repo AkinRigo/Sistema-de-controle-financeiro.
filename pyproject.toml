@@ -27,11 +27,11 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["backend/src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src", "tests"]
+testpaths = ["backend/tests"]
+pythonpath = ["backend/src", "backend/tests"]
 addopts = "--strict-markers"
 
 [tool.coverage.run]
@@ -45,7 +45,7 @@ show_missing = true
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests"]
+src = ["backend/src", "backend/tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
