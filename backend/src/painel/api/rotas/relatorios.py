@@ -72,7 +72,12 @@ def _carregar(sessao: Session, usuario: UsuarioModelo) -> _Dados:
 def _calcular(sessao: Session, usuario: UsuarioModelo, mes: str, hoje):
     garantir_rendas(sessao, usuario, Mes(mes))
     dados = _carregar(sessao, usuario)
-    r = calcular_resumo(
+    return dados, _resumir(dados, usuario, mes, hoje)
+
+
+def _resumir(dados: _Dados, usuario: UsuarioModelo, mes: str, hoje):
+    """O resumo do mês, a partir dos dados já carregados (sem ir ao banco)."""
+    return calcular_resumo(
         mes=Mes(mes),
         usuario=dados.usuario,
         bancos=dados.bancos,
@@ -84,12 +89,15 @@ def _calcular(sessao: Session, usuario: UsuarioModelo, mes: str, hoje):
         por_fim_de_semana=Dinheiro.de(usuario.corridas_por_fim_de_semana),
         contar_na_previsao=usuario.contar_corridas,
     )
-    return dados, r
 
 
 @router.get("/resumo/{mes}", response_model=ResumoSaida)
 def resumo(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep, hoje: HojeDep) -> ResumoSaida:
     dados, r = _calcular(sessao, usuario, mes, hoje)
+    return _resumo_saida(dados, r, hoje)
+
+
+def _resumo_saida(dados: _Dados, r, hoje) -> ResumoSaida:
     contas_por_id = {c.id: c for c in dados.contas}
     return ResumoSaida(
         mes=r.mes.valor,
@@ -170,7 +178,10 @@ def saldo_diario(
 
 @router.get("/categorias/{mes}", response_model=list[CategoriaSaida])
 def categorias(mes: MesTexto, sessao: SessaoDep, usuario: UsuarioDep) -> list[CategoriaSaida]:
-    dados = _carregar(sessao, usuario)
+    return _categorias_saida(_carregar(sessao, usuario), mes)
+
+
+def _categorias_saida(dados: _Dados, mes: str) -> list[CategoriaSaida]:
     totais = resumir_categorias(Mes(mes), dados.usuario.desde, dados.contas, dados.pagamentos)
     itens = itens_por_categoria(Mes(mes), dados.usuario.desde, dados.contas, dados.pagamentos)
     return [

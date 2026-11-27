@@ -3,6 +3,7 @@ import { api, type Banco } from "../api";
 import { useCtx } from "../contexto";
 import { dinheiro, lerDinheiro, paraCampo } from "../util";
 import { Cancelar, valorDe } from "./comuns";
+import { Secao } from "./Recolher";
 
 export function Bancos() {
   const c = useCtx();
@@ -16,8 +17,8 @@ export function Bancos() {
   }
 
   return (
-    <section className="card panel on">
-      <h2>Meus bancos</h2>
+    <Secao id="bancos" titulo="Meus bancos" chaves={["novoBanco", "ajustar:", "remover:"]}
+      resumo={`${c.dados.bancos.length} ${c.dados.bancos.length === 1 ? "banco" : "bancos"} · ${dinheiro(c.dados.resumo.tenho)}`}>
       <p className="hint">O saldo de cada conta. Ganhos recebidos somam aqui; contas pagas descontam.</p>
       <div>
         {c.dados.bancos.length
@@ -25,7 +26,7 @@ export function Bancos() {
           : <div className="empty">Cadastre seus bancos com o saldo que aparece no app de cada um.</div>}
       </div>
       <div className="total"><span>Total nos bancos</span><b>{dinheiro(c.dados.resumo.tenho)}</b></div>
-      <details className="add">
+      <details className="add" open={c.aberto === "novoBanco" || undefined}>
         <summary>+ Adicionar banco</summary>
         <div className="form">
           <label className="f">Banco<input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Nubank" /></label>
@@ -33,7 +34,7 @@ export function Bancos() {
           <button className="btn pri" onClick={adicionar}>Adicionar</button>
         </div>
       </details>
-    </section>
+    </Secao>
   );
 }
 

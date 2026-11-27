@@ -4,6 +4,7 @@ import type { ItemCategoria } from "../api";
 import { useCtx } from "../contexto";
 import { dinheiro, nomeMes, num } from "../util";
 import { EditarConta, ExcluirConta, NovaConta, type Item } from "./Contas";
+import { Secao } from "./Recolher";
 
 function rotulo(i: ItemCategoria, nomeCategoria: string) {
   const credor = i.credor && i.credor !== nomeCategoria ? " · " + i.credor : "";
@@ -25,8 +26,7 @@ export function Categorias() {
   const contaPorId = new Map(dados.contas.map((x) => [x.id, x]));
 
   return (
-    <section className="card panel on">
-      <h2>Por categoria</h2>
+    <Secao id="categorias" titulo="Por categoria" resumo={`${dinheiro(dados.resumo.divida_total)} ainda devo`}>
       <p className="hint">
         Quanto vai para cada lado. “Ainda devo” soma dívidas e parcelas futuras (contas fixas como aluguel não entram).
         Clique numa categoria para ver os itens. A barra mostra o mês: verde é o que já foi pago.
@@ -86,6 +86,6 @@ export function Categorias() {
       </div>
       <div className="total"><span>Dívida total (todas as categorias)</span><b>{dinheiro(dados.resumo.divida_total)}</b></div>
       <NovaConta />
-    </section>
+    </Secao>
   );
 }

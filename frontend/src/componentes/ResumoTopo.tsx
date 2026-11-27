@@ -5,6 +5,7 @@ import { api } from "../api";
 import { useCtx } from "../contexto";
 import { dataCurta, dinheiro } from "../util";
 import { itensDoMes } from "./Contas";
+import { Seta, useRecolhido } from "./Recolher";
 
 export type Vista = "bills" | "incomes" | "accounts";
 type IrPara = (vista: Vista, chave?: string) => void;
@@ -16,17 +17,21 @@ const Lixeira = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></svg>
 );
 
-function Card({ titulo, total, sinal, rotuloNovo, novo, vazio, children }: {
-  titulo: string; total: string; sinal?: "mais" | "menos"; rotuloNovo: string; novo: () => void;
+function Card({ id, titulo, total, sinal, rotuloNovo, novo, vazio, children }: {
+  id: string; titulo: string; total: string; sinal?: "mais" | "menos"; rotuloNovo: string; novo: () => void;
   vazio: string; children: ReactNode[];
 }) {
+  const [fechado, alternar] = useRecolhido(id);
   return (
-    <section className={`bloco ${sinal ?? ""}`}>
+    <section className={`bloco ${sinal ?? ""}${fechado ? " fechado" : ""}`}>
       <div className="bloco-cab">
         <div><h2>{titulo}</h2><span className="bloco-tot">{total}</span></div>
-        <button className="bloco-novo" onClick={novo} aria-label={rotuloNovo} title={rotuloNovo}>+</button>
+        <span className="bloco-acoes">
+          <button className="bloco-novo" onClick={novo} aria-label={rotuloNovo} title={rotuloNovo}>+</button>
+          <Seta aberto={!fechado} alternar={alternar} nome={titulo} />
+        </span>
       </div>
-      {children.length ? <ul className="bloco-lista">{children}</ul> : <p className="bloco-vazio">{vazio}</p>}
+      {!fechado && (children.length ? <ul className="bloco-lista">{children}</ul> : <p className="bloco-vazio">{vazio}</p>)}
     </section>
   );
 }
@@ -56,15 +61,15 @@ export function ResumoTopo({ irPara }: { irPara: IrPara }) {
   return (
     <div className="resumo-topo">
       <div className="blocos">
-        <Card titulo="Tenho nos bancos" total={dinheiro(r.tenho)} rotuloNovo="Adicionar banco"
-          novo={() => irPara("accounts")} vazio="Nenhum banco ainda.">
+        <Card id="card-bancos" titulo="Tenho nos bancos" total={dinheiro(r.tenho)} rotuloNovo="Adicionar banco"
+          novo={() => irPara("accounts", "novoBanco")} vazio="Nenhum banco ainda.">
           {dados.bancos.map((b) => (
             <Item key={b.id} nome={b.nome} valor={dinheiro(b.saldo)}
               editar={() => irPara("accounts", "ajustar:" + b.id)} excluir={() => irPara("accounts", "remover:" + b.id)} />
           ))}
         </Card>
 
-        <Card titulo="Vai entrar" sinal="mais" total={dinheiro(r.vai_entrar)} rotuloNovo="Adicionar ganho"
+        <Card id="card-entrar" titulo="Vai entrar" sinal="mais" total={dinheiro(r.vai_entrar)} rotuloNovo="Adicionar ganho"
           novo={() => irPara("incomes", "novoGanho")} vazio="Nada previsto pra entrar.">
           {previstos.map((g) => (
             <Item key={g.id} nome={g.nome} valor={dinheiro(g.valor)}
@@ -74,8 +79,8 @@ export function ResumoTopo({ irPara }: { irPara: IrPara }) {
           ))}
         </Card>
 
-        <Card titulo="Falta pagar" sinal="menos" total={dinheiro(r.falta_pagar)} rotuloNovo="Adicionar conta"
-          novo={() => irPara("bills")} vazio="Nenhuma conta em aberto.">
+        <Card id="card-falta" titulo="Falta pagar" sinal="menos" total={dinheiro(r.falta_pagar)} rotuloNovo="Adicionar conta"
+          novo={() => irPara("bills", "novaConta")} vazio="Nenhuma conta em aberto.">
           {abertos.map((x) => {
             const chave = x.conta.id + "@" + x.mes;
             const parcela = x.n && x.conta.total_parcelas ? `parcela ${x.n} de ${x.conta.total_parcelas} · ` : "";

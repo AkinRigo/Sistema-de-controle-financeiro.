@@ -4,6 +4,7 @@ import { bancoPadrao, useCtx } from "../contexto";
 import { HOJE, MES_ATUAL, dataCurta, dinheiro, lerDinheiro, mesCompleto, nomeMes, num, paraCampo } from "../util";
 import { Cancelar, OpcoesBanco, valorDe } from "./comuns";
 import { Corridas } from "./Corridas";
+import { Secao } from "./Recolher";
 
 /** Tudo que entra: renda fixa, ganhos do mês e a estimativa de corridas. */
 export function Ganhos() {
@@ -14,8 +15,8 @@ export function Ganhos() {
   return (
     <>
       <RendasFixas />
-      <section className="card panel on">
-        <h2>Ganhos de {nomeMes(mes)}</h2>
+      <Secao id="ganhos" titulo={`Ganhos de ${nomeMes(mes)}`} chaves={["novoGanho", "editarGanho:", "receber:"]}
+        resumo={`${lista.length} ${lista.length === 1 ? "ganho" : "ganhos"} · ${dinheiro(dados.resumo.recebido)} recebido`}>
         <p className="hint">“Já recebi” coloca o dinheiro no banco. “Vai entrar” conta na previsão.</p>
         <div>
           {lista.length ? lista.map((g) => <LinhaGanho key={g.id} g={g} />) : <div className="empty">Nenhum ganho neste mês ainda.</div>}
@@ -24,7 +25,7 @@ export function Ganhos() {
           )}
         </div>
         <NovoGanho key={mes} />
-      </section>
+      </Secao>
       <Corridas key={mes} />
     </>
   );
@@ -39,15 +40,15 @@ function RendasFixas() {
   const rendas = c.dados.rendas;
   const total = rendas.reduce((s, r) => s + num(r.valor), 0);
   return (
-    <section className="card panel on">
-      <h2>Renda fixa</h2>
+    <Secao id="rendas" titulo="Renda fixa" chaves={["editarRenda:", "excluirRenda:"]}
+      resumo={rendas.length ? `${rendas.length} ${rendas.length === 1 ? "renda" : "rendas"} · ${dinheiro(total)} por mês` : "Nenhuma renda fixa"}>
       <p className="hint">Salário, pensão, aluguel que você recebe… Cadastre uma vez: todo mês ela aparece sozinha como “vai entrar”. Quando cair, marque “Recebi” nos ganhos do mês.</p>
       <div>
         {rendas.length ? rendas.map((r) => <LinhaRenda key={r.id} r={r} />) : <div className="empty">Nenhuma renda fixa ainda.</div>}
         {rendas.length > 0 && <div className="total"><span>Entra todo mês</span><b>{dinheiro(total)}</b></div>}
       </div>
       <NovaRenda />
-    </section>
+    </Secao>
   );
 }
 

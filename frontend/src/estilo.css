@@ -353,3 +353,17 @@ button.gr-barra{cursor:pointer}
 .voz-marcar label{display:flex;align-items:center;gap:10px;border:2px solid var(--edge);border-radius:12px;padding:10px 12px;cursor:pointer}
 .voz-marcar input{width:20px;height:20px;accent-color:var(--roxo)}
 .voz-marcar span{flex:1}
+
+/* minimizar: setinha no canto de cada card/painel */
+.seta{flex:none;width:36px;height:36px;border-radius:10px;border:2px solid var(--dash);background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center}
+.seta:hover{border-color:var(--edge);color:var(--ink)}
+.seta svg{width:18px;height:18px;transition:transform .2s}
+.seta.fechada svg{transform:rotate(-90deg)}
+.bloco-acoes{display:flex;gap:6px;align-items:flex-start}
+.bloco.fechado{align-self:start}
+.bloco.fechado .bloco-cab{border-bottom:0}
+.sec-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.sec-resumo{color:var(--muted);font-size:14px;margin:0}
+.card.fechado{padding-bottom:clamp(12px,2vw,20px)}
+.card.fechado h2{margin-bottom:2px}
+@media(prefers-reduced-motion:reduce){.seta svg{transition:none}}

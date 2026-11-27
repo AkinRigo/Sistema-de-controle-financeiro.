@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 
 from painel.api.erros import mensagens
-from painel.api.rotas import admin, auth, backup, cadastros, relatorios, rendas, voz
+from painel.api.rotas import admin, auth, backup, cadastros, painel_mes, relatorios, rendas, voz
 from painel.config import Config
 from painel.domain.erros import ErroDeValidacao
 from painel.infra.db import criar_engine, criar_fabrica_sessoes
@@ -158,4 +158,5 @@ def criar_app(
     app.include_router(rendas.router)
     app.include_router(admin.router)
     app.include_router(voz.router)
+    app.include_router(painel_mes.router)
     return app

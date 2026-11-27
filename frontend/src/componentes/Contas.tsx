@@ -5,6 +5,7 @@ import { api, type Aberta, type Conta, type ContaEntrada, type Pagamento, type T
 import { bancoPadrao, useCtx } from "../contexto";
 import { dataCurta, dinheiro, lerDinheiro, mesCompleto, nomeMes, paraCampo } from "../util";
 import { Cancelar, OpcoesBanco, OpcoesCategoria, marcado, useNomeCategoria, valorDe } from "./comuns";
+import { Secao } from "./Recolher";
 
 export interface Item {
   conta: Conta;
@@ -43,8 +44,8 @@ export function Contas() {
   const nm = nomeMes(mes);
 
   return (
-    <section className="card panel on">
-      <h2>Contas de {nm}</h2>
+    <Secao id="contas" titulo={`Contas de ${nm}`} chaves={["novaConta", "pagar:", "editar:", "excluir:"]}
+      resumo={`${abertos.length} ${abertos.length === 1 ? "em aberto" : "em aberto"} · ${dinheiro(dados.resumo.falta_pagar)}`}>
       <p className="hint">Clique no círculo quando pagar. O valor sai do banco que você escolher.</p>
       <div className="tabs">
         <button className={`tab ${aba === "open" ? "on" : ""}`} onClick={() => setAba("open")}>
@@ -80,7 +81,7 @@ export function Contas() {
       <datalist id="credList">
         {[...new Set(dados.contas.map((x) => x.credor).filter(Boolean))].map((n) => <option key={n} value={n!} />)}
       </datalist>
-    </section>
+    </Secao>
   );
 }
 
@@ -251,7 +252,7 @@ export function NovaConta({ aoAdicionar }: { aoAdicionar?: () => void }) {
   }
 
   return (
-    <details className="add">
+    <details className="add" open={c.aberto === "novaConta" || undefined}>
       <summary>+ Adicionar conta ou dívida</summary>
       <div className="form">
         <label className="f">Nome<input value={f.nome} onChange={(e) => mudar("nome", e.target.value)} placeholder="Ex.: aluguel, cartão Nubank" /></label>

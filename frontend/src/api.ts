@@ -1,3 +1,4 @@
+import type { Dados } from "./contexto";
 // Cliente da API do backend. Dinheiro chega e sai como texto ("150.50").
 
 const BASE = import.meta.env.DEV ? "http://localhost:8000" : "";
@@ -199,6 +200,7 @@ export const api = {
   salvarCorridas: (c: CorridasDados) => pedir<Corridas>("PUT", "/configuracoes/corridas", c),
 
   resumo: (mes: string) => pedir<Resumo>("GET", `/resumo/${mes}`),
+  painel: (mes: string) => pedir<Dados>("GET", `/painel/${mes}`),
   categorias: (mes: string) => pedir<Categoria[]>("GET", `/categorias/${mes}`),
   saldoDiario: (mes: string) => pedir<SaldoDiario>("GET", `/saldo-diario/${mes}`),
   entenderVoz: (texto: string, mes: string) => pedir<PropostaVoz>("POST", "/voz/entender", { texto, mes }),

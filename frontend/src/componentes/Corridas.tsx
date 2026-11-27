@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import { useCtx } from "../contexto";
 import { dinheiro, lerDinheiro, mesCompleto, num, paraCampo } from "../util";
+import { Secao } from "./Recolher";
 
 export function Corridas() {
   const c = useCtx();
@@ -20,8 +21,8 @@ export function Corridas() {
   const estimativa = atual.estimativa_mes; // calculada pelo backend para o mês aberto
 
   return (
-    <section className="card panel on">
-      <h2>Estimativa de corridas</h2>
+    <Secao id="corridas" titulo="Estimativa de corridas"
+      resumo={estimativa ? `${dinheiro(estimativa)} estimado neste mês` : "Sem estimativa"}>
       <p className="hint">Quanto você acha que tira com a moto. Fica separado dos ganhos reais.</p>
       <div className="form">
         <label className="f">Por semana, dias úteis (R$)
@@ -39,6 +40,6 @@ export function Corridas() {
           Estimativa para {mesCompleto(c.mes)}: {dinheiro(estimativa)}{atual.contar_na_previsao ? " (entrando na previsão)" : " (fora da previsão)"}.
         </p>
       ) : null}
-    </section>
+    </Secao>
   );
 }

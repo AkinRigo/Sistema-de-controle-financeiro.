@@ -27,15 +27,8 @@ function aplicarTema(t: Tema) {
   try { localStorage.setItem(CHAVE_TEMA, t); } catch { /* sem storage */ }
 }
 
-async function carregar(mes: string): Promise<Dados> {
-  // O resumo vem primeiro: ele gera os ganhos das rendas fixas até este mês,
-  // e a lista de ganhos (pedida depois) já chega com eles.
-  const resumo = await api.resumo(mes);
-  const [usuario, contas, bancos, ganhos, rendas, corridas, categorias] = await Promise.all([
-    api.eu(), api.contas(), api.bancos(), api.ganhosDoMes(mes), api.rendas(), api.corridas(mes), api.categorias(mes),
-  ]);
-  return { usuario, contas, bancos, ganhos, rendas, corridas, resumo, categorias };
-}
+// Uma chamada só: o backend lê os dados uma vez e manda a tela inteira do mês.
+const carregar = (mes: string): Promise<Dados> => api.painel(mes);
 
 export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => void }) {
   const [mes, setMesBruto] = useState(MES_ATUAL);
@@ -130,10 +123,16 @@ export function Painel({ usuario, aoSair }: { usuario: Usuario; aoSair: () => vo
   const abertas = r.abertas.length;
   const ligado = dados.corridas.contar_na_previsao;
 
-  // Dos cards do topo: abre a aba, a caixinha (editar/excluir) e rola até ela.
+  // Dos cards do topo: abre a aba e a caixinha (novo/editar/excluir), rola até ELA
+  // (no meio da tela, inteira à vista) e já põe o cursor no primeiro campo.
   const irPara = (v: Vista, chave?: string) => {
     setVista(v); setAberto(chave ?? null);
-    setTimeout(() => document.getElementById("secoes")?.scrollIntoView({ behavior: "smooth" }), 50);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const alvo = chave && document.querySelector<HTMLElement>("#secoes ~ * :is(.box, details.add[open])");
+      if (!alvo) { document.getElementById("secoes")?.scrollIntoView({ behavior: "smooth" }); return; }
+      alvo.scrollIntoView({ behavior: "smooth", block: "center" });
+      alvo.querySelector<HTMLElement>("input:not([type=radio]):not([type=checkbox]), select, button.btn")?.focus({ preventScroll: true });
+    }));
   };
 
   const vistas: [Vista, string, string][] = [
