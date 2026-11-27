@@ -89,6 +89,11 @@ const ACOES: Partial<Record<PropostaVoz["acao"], Acao>> = {
     linhas: (p) => [["Banco", p.banco?.nome], ["Somar", `+ ${dinheiro(p.valor)}`], ["Saldo fica", dinheiro(p.saldo_novo)]],
     executar: (p, c) => c.executar(() => api.editarBanco(p.banco!.id, p.banco!.nome, p.saldo_novo!), `${dinheiro(p.valor)} somado ao ${p.banco!.nome}.`),
   },
+  tirar_banco: {
+    titulo: "Tirar do saldo do banco",
+    linhas: (p) => [["Banco", p.banco?.nome], ["Tirar", `− ${dinheiro(p.valor)}`], ["Saldo fica", dinheiro(p.saldo_novo)]],
+    executar: (p, c) => c.executar(() => api.editarBanco(p.banco!.id, p.banco!.nome, p.saldo_novo!), `${dinheiro(p.valor)} tirado do ${p.banco!.nome}.`),
+  },
   ajustar_saldo: {
     titulo: "Ajustar saldo do banco",
     linhas: (p) => [["Banco", p.banco?.nome], ["Era", dinheiro(p.banco?.saldo)], ["Fica", dinheiro(p.saldo_novo)]],

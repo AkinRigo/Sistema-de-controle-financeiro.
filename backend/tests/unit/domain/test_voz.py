@@ -337,3 +337,9 @@ def test_banco_no_campo_item_id_tambem_vale():
     assert _v("editar_banco", item_id="b-nu", nome="Nu").banco == NUBANK
     assert _v("apagar_banco", item_id="b-caixa").banco == CAIXA
     assert _v("apagar_banco", item_id="c-luz").acao == "nao_entendi"  # id de conta não é banco
+
+
+def test_tirar_do_banco_calcula_o_saldo_novo():
+    p = _v("tirar_banco", banco_id="b-caixa", valor="55")
+    assert p.acao == "tirar_banco" and p.banco == CAIXA and p.saldo_novo == dinheiro("425")
+    assert _v("tirar_banco", banco_id="b-caixa", valor="0").acao == "nao_entendi"

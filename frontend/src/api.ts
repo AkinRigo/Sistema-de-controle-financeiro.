@@ -68,7 +68,7 @@ export interface ItemVoz { id: string; nome: string; valor: string; conta_id: st
 export interface BancoVoz { id: string; nome: string; saldo: string }
 export interface PropostaVoz {
   acao: "pagar_conta" | "desfazer_pagamento" | "receber_ganho" | "novo_ganho" | "nova_conta" | "novo_banco"
-    | "somar_banco" | "ajustar_saldo" | "transferir"
+    | "somar_banco" | "tirar_banco" | "ajustar_saldo" | "transferir"
     | "editar_conta" | "editar_ganho" | "editar_banco" | "apagar_conta" | "apagar_ganho" | "apagar_banco"
     | "consultar_sobra" | "consultar_falta" | "consultar_banco" | "nao_entendi";
   mensagem: string;

@@ -22,6 +22,7 @@ ACOES = (
     "nova_conta",
     "novo_banco",
     "somar_banco",
+    "tirar_banco",
     "ajustar_saldo",
     "transferir",
     "editar_conta",
@@ -152,8 +153,11 @@ Hoje é {hoje.isoformat()}. Escolha UMA ação:
 - nova_conta: cadastrar conta nova ("conta de internet 120 todo mês dia 10",
   "parcelei a geladeira em 10 vezes de 300", "conta do mecânico 400").
 - novo_banco: cadastrar banco ("adiciona o banco Inter com 500").
-- somar_banco: entrou dinheiro num banco que não é ganho previsto ("coloquei 200 no nubank").
-- ajustar_saldo: informa o saldo atual de um banco ("o nubank tá com 1500").
+- somar_banco: ENTROU dinheiro num banco e não é ganho previsto ("coloquei 200 no nubank").
+- tirar_banco: SAIU dinheiro de um banco ("tira 55 do nubank", "saquei 100 da caixa",
+  "gastei 30 do nubank").
+- ajustar_saldo: SÓ quando a pessoa diz quanto o banco TEM agora ("o nubank tá com 1500").
+  Nunca use para tirar ou colocar dinheiro.
 - transferir: passou dinheiro de um banco para outro ("passei 300 do nubank pra caixa").
 - editar_conta: mudar valor, dia de vencimento ou nome de uma conta cadastrada
   ("muda o aluguel pra 1400", "a conta do celular vence dia 5").
@@ -347,7 +351,7 @@ def _conferir_novo_banco(resposta, contexto, hoje, mes):
 
 
 def _conferir_saldo(acao: str):
-    """Somar ao saldo ou definir o saldo de um banco."""
+    """Somar, tirar ou definir o saldo de um banco."""
 
     def conferir(resposta, contexto, hoje, mes):
         banco = _banco_falado_ou_unico(resposta, contexto)
@@ -359,7 +363,9 @@ def _conferir_saldo(acao: str):
             valor = None
         if valor is None:
             return _nao("Qual o valor? Fala de novo com o valor.")
-        novo = banco.valor + valor if acao == "somar_banco" else valor
+        novo = {"somar_banco": banco.valor + valor, "tirar_banco": banco.valor - valor}.get(
+            acao, valor
+        )
         return Proposta(acao, banco=banco, valor=valor, saldo_novo=novo)
 
     return conferir
@@ -465,6 +471,7 @@ CONFERIR: dict[str, Callable[[dict, ContextoDeVoz, date, Mes], Proposta]] = {
     "nova_conta": _conferir_nova_conta,
     "novo_banco": _conferir_novo_banco,
     "somar_banco": _conferir_saldo("somar_banco"),
+    "tirar_banco": _conferir_saldo("tirar_banco"),
     "ajustar_saldo": _conferir_saldo("ajustar_saldo"),
     "transferir": _conferir_transferir,
     "editar_conta": _conferir_editar("editar_conta", lambda c: c.cadastro, usa="dia"),
